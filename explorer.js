@@ -38,6 +38,8 @@ const translations = {
     availableOnlineTomorrow: 'Available online tomorrow',
     availableOnlineInDays: 'Available online in {n} days',
     onlineDate: 'Online {date}',
+    watchLive: 'Watch live', liveStream: 'Live stream',
+    availableWindow: 'Available {range}', online: 'Online',
     // Countdown
     screeningRecently: 'Screening recently',
     screeningToday: 'Screening today!',
@@ -99,6 +101,8 @@ const translations = {
     availableOnlineTomorrow: 'Disponible en línea mañana',
     availableOnlineInDays: 'Disponible en línea en {n} días',
     onlineDate: 'En línea {date}',
+    watchLive: 'Ver en vivo', liveStream: 'Transmisión en vivo',
+    availableWindow: 'Disponible {range}', online: 'En línea',
     // Countdown
     screeningRecently: 'Proyección reciente',
     screeningToday: '¡Proyección hoy!',
@@ -284,6 +288,34 @@ const citiesGeocode = {
 // Each CMS item renders a <div class="cms-event-item"> with data-* attributes.
 // See INSTRUCTIONS.md for Webflow CMS setup details.
 
+// Format a single ISO date like "2025-10-15" into a short display string like "Oct 15".
+// Used for per-screening date display (the longer form comes from formatDateRange).
+function formatShortDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
+}
+
+// Format a display date range like "Oct 15–20, 2025" or "Oct 28 – Nov 2, 2025"
+// from ISO start/end strings coming out of Webflow's Event Start / Event End date fields.
+function formatDateRange(startISO, endISO) {
+  if (!startISO) return '';
+  const start = new Date(startISO);
+  if (isNaN(start)) return '';
+  const end = endISO ? new Date(endISO) : null;
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const sM = MONTHS[start.getUTCMonth()], sD = start.getUTCDate(), sY = start.getUTCFullYear();
+  if (!end || isNaN(end) || (start.getTime() === end.getTime())) {
+    return `${sM} ${sD}, ${sY}`;
+  }
+  const eM = MONTHS[end.getUTCMonth()], eD = end.getUTCDate(), eY = end.getUTCFullYear();
+  if (sY === eY && sM === eM) return `${sM} ${sD}\u2013${eD}, ${sY}`;
+  if (sY === eY) return `${sM} ${sD} \u2013 ${eM} ${eD}, ${sY}`;
+  return `${sM} ${sD}, ${sY} \u2013 ${eM} ${eD}, ${eY}`;
+}
+
 function loadEventsFromCMS() {
   const items = document.querySelectorAll('.cms-event-item');
   if (!items.length) {
@@ -292,28 +324,93 @@ function loadEventsFromCMS() {
   }
   return Array.from(items).map(el => {
     const d = el.dataset;
-    // Parse screenings from delimited string: "date|time|venue|link|workshop;;date|time|venue|link"
-    const screenings = (d.screenings || '').split(';;').filter(Boolean).map(s => {
-      const parts = s.split('|');
+    // Webflow wraps each Collection Item in a .w-dyn-item div. Our nested
+    // Collection Lists (Photos, Awards, Press Hits, Screening Instances) live
+    // as siblings to .cms-event-item inside that wrapper.
+    const scope = el.closest('.w-dyn-item') || el.parentElement || el;
+    // Parse nested Screening Instances: each <span class="cms-screening" data-...>
+    // lives inside a nested Collection List with wrapper class "cms-event-screenings"
+    const screeningEls = scope.querySelectorAll('.cms-event-screenings .cms-screening');
+    const screenings = Array.from(screeningEls).map(s => {
+      const sd = s.dataset;
+      const venue = (sd.venue || '').trim();
+      const endDate = (sd.endDate || '').trim();
+      // Derive type: venue = in-person; no venue + no end = live stream; no venue + end = on-demand window
+      let type;
+      if (venue) type = 'in-person';
+      else if (endDate) type = 'online-on-demand';
+      else type = 'online-live';
       return {
-        date: parts[0] || '',
-        time: parts[1] === 'null' || !parts[1] ? null : parts[1],
-        venue: parts[2] || '',
-        link: parts[3] || '#',
-        workshop: parts[4] === 'true' ? true : undefined
+        type: type,
+        dateISO: (sd.date || '').trim(),      // raw ISO from Webflow Date field
+        endDateISO: endDate,                   // raw ISO from Webflow End Date field
+        date: formatShortDate(sd.date),        // display short form, e.g. "Oct 15"
+        time: (sd.time || '').trim() || null,  // Local Start Time 24h or Local Start Time
+        venue: venue,
+        venueNotes: (sd.venueNotes || '').trim() || null,
+        link: (sd.link || '').trim() || null,  // optional per-screening override
+        geo: (sd.geo || '').trim() || null,
+        geoLabel: (sd.geoLabel || '').trim() || null,
+        workshop: sd.workshop === 'true' || sd.workshop === 'True' ? true : undefined,
+        qa: sd.qa === 'true' || sd.qa === 'True' ? true : undefined,
+        encore: sd.encore === 'true' || sd.encore === 'True' ? true : undefined
       };
     });
-    // Parse online availability
+    // Parse multi-image field: look for <img> elements inside a nested .cms-event-images div
+    const imgContainer = scope.querySelector('.cms-event-images');
+    const imgUrls = imgContainer
+      ? Array.from(imgContainer.querySelectorAll('img')).map(i => i.src).filter(Boolean)
+      : [];
+    // Parse nested multi-reference Awards: <span class="cms-award" data-key="audience-award"></span>
+    // (data-key should be bound to the Award's Slug; data-name is the display name fallback)
+    const awardEls = scope.querySelectorAll('.cms-event-awards .cms-award');
+    const awards = Array.from(awardEls).map(a => ({
+      key: (a.dataset.key || a.dataset.slug || '').trim(),
+      name: (a.dataset.name || a.textContent || '').trim()
+    })).filter(a => a.key || a.name);
+    // Parse nested multi-reference Press Hits: <span class="cms-press" data-title="..." data-link="..." data-image="..."></span>
+    const pressEls = scope.querySelectorAll('.cms-event-presses .cms-press');
+    const pressItems = Array.from(pressEls).map(p => ({
+      title: (p.dataset.title || p.dataset.name || '').trim(),
+      link: (p.dataset.link || p.dataset.url || '').trim(),
+      image: (p.dataset.image || '').trim()
+    })).filter(p => p.title && p.link);
+    // Collapse event.online from the first Online - On-Demand screening (if any).
+    // Live-stream screenings don't populate event.online; they render as showtime rows.
     let online = null;
-    if (d.onlineStart || d.onlineLink) {
+    const onDemand = screenings.find(s => s.type === 'online-on-demand');
+    if (onDemand) {
       online = {
-        start: d.onlineStart || null,
-        end: d.onlineEnd || null,
-        link: d.onlineLink || '',
-        geo: d.onlineGeo || 'worldwide',
-        geoLabel: d.onlineGeoLabel || 'Available worldwide'
+        start: onDemand.dateISO,
+        end: onDemand.endDateISO,
+        link: onDemand.link || d.link || '',
+        geo: onDemand.geo || 'worldwide',
+        geoLabel: onDemand.geoLabel || 'Available worldwide'
       };
     }
+    // Compute `upcoming`:
+    //   1. If any screening is still in the future (in-person/live: date hasn't passed;
+    //      on-demand: end date hasn't passed), the event is upcoming.
+    //   2. Otherwise fall back to Event Status string.
+    //   3. Otherwise compare Event End / Event Start to today.
+    const now = new Date();
+    let isUpcoming = false;
+    if (screenings.length > 0) {
+      isUpcoming = screenings.some(s => {
+        if (s.type === 'online-on-demand') {
+          return s.endDateISO && new Date(s.endDateISO) >= now;
+        }
+        return s.dateISO && new Date(s.dateISO) >= now;
+      });
+    }
+    if (!isUpcoming && d.upcoming) {
+      isUpcoming = /upcoming|future|active/i.test(d.upcoming);
+    } else if (!isUpcoming && !screenings.length) {
+      if (d.eventEnd) isUpcoming = new Date(d.eventEnd) >= now;
+      else if (d.eventStart) isUpcoming = new Date(d.eventStart) >= now;
+    }
+    // Format dateRange from Event Start / Event End (falls back to any plain-text data-date-range)
+    const dateRangeStr = d.dateRange || formatDateRange(d.eventStart, d.eventEnd);
     return {
       id: d.id || el.getAttribute('data-slug') || '',
       name: d.name || '',
@@ -321,19 +418,23 @@ function loadEventsFromCMS() {
       country: d.country || '',
       lat: parseFloat(d.lat) || 0,
       lng: parseFloat(d.lng) || 0,
-      dateRange: d.dateRange || '',
-      upcoming: d.upcoming === 'true',
+      dateRange: dateRangeStr,
+      eventStart: d.eventStart || null,
+      eventEnd: d.eventEnd || null,
+      upcoming: isUpcoming,
       link: d.link || '',
       photos: d.image || 0,
-      award: d.award && d.award !== '' ? d.award : null,
-      press: d.press === 'true' ? true : null,
+      award: awards.length > 0 ? (awards[0].key || awards[0].name) : null,
+      awards: awards,
+      press: pressItems.length > 0 ? true : null,
+      pressItems: pressItems,
       type: (d.type || 'festival').toLowerCase(),
       prestige: parseInt(d.prestige) || 2,
       online: online,
       screenings: screenings,
       flyer: d.flyer || undefined,
       logo: d.logo || undefined,
-      eventImages: d.eventImages ? d.eventImages.split(',').map(u => u.trim()) : undefined
+      eventImages: imgUrls.length > 0 ? imgUrls : undefined
     };
   });
 }
@@ -348,12 +449,19 @@ const events = loadEventsFromCMS();
     Original contained 64 events. See git history for reference.  */
 // --- end of CMS data loading ---
 
-// Sort each event's screenings chronologically
+// Post-process each event's screenings:
+//   1. Fall back screening.link to event.link when empty.
+//   2. Sort chronologically by raw ISO date (dateISO).
 events.forEach(ev => {
+  ev.screenings.forEach(s => {
+    if (!s.link) s.link = ev.link || '#';
+  });
   if (ev.screenings.length > 1) {
-    const yrMatch = ev.dateRange.match(/\d{4}/);
-    const yr = yrMatch ? yrMatch[0] : '2025';
-    ev.screenings.sort((a, b) => new Date(a.date + ', ' + yr) - new Date(b.date + ', ' + yr));
+    ev.screenings.sort((a, b) => {
+      const da = a.dateISO ? new Date(a.dateISO).getTime() : 0;
+      const db = b.dateISO ? new Date(b.dateISO).getTime() : 0;
+      return da - db;
+    });
   }
 });
 
@@ -389,7 +497,10 @@ const eventPressLinks = {
 };
 
 function getEventPress(evId) {
-  const ids = eventPressLinks[evId] || [];
+  const ev = events.find(e => e.id === evId);
+  if (ev && ev.pressItems && ev.pressItems.length > 0) return ev.pressItems;
+  // Legacy fallback for any hardcoded lookups still in pressArticles
+  const ids = (typeof eventPressLinks !== 'undefined' && eventPressLinks[evId]) || [];
   return ids.map(id => pressArticles.find(a => a.id === id)).filter(Boolean);
 }
 
@@ -754,6 +865,40 @@ function buildQATag(eventId, venue, workshop) {
   return `<span class="qa-tag${cls}">${label}</span>`;
 }
 
+// Small globe SVG used inline next to online-screening rows
+const SCREENING_GLOBE_SVG = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-1px;margin-right:3px;"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>';
+
+// Build the inner HTML of a screening row (excluding the wrapping <span>).
+// Handles in-person, online-live, and online-on-demand types consistently
+// across the map popup and both card-list render sites.
+function formatScreeningRowContent(s, ev) {
+  // Online — On-Demand: render as an availability window, not a showtime.
+  if (s.type === 'online-on-demand') {
+    const startShort = s.date || formatShortDate(s.dateISO);
+    const endShort = formatShortDate(s.endDateISO);
+    const range = endShort && endShort !== startShort
+      ? `${startShort}\u2013${endShort}`
+      : startShort;
+    const label = t('availableWindow', { range: range });
+    const geo = s.geoLabel ? ` · ${SCREENING_GLOBE_SVG}${s.geoLabel}` : '';
+    return `<strong>${label}</strong>${geo}`;
+  }
+  // Online — Live: a synchronous streaming showtime (date + time, no venue).
+  if (s.type === 'online-live') {
+    const parts = [`<strong>${s.date}</strong>`];
+    if (s.time) parts.push(s.time);
+    parts.push(`${SCREENING_GLOBE_SVG}${t('liveStream')}`);
+    if (s.geoLabel) parts.push(s.geoLabel);
+    const qa = buildQATag(ev.id, '', s.workshop);
+    return parts.join(' · ') + qa;
+  }
+  // In-Person (default)
+  const parts = [`<strong>${s.date}</strong>`];
+  if (s.time) parts.push(s.time);
+  if (s.venue) parts.push(s.venue);
+  return parts.join(' · ') + buildQATag(ev.id, s.venue, s.workshop);
+}
+
 function getHeroGradient(id, category) {
   const cat = category || 'default';
   const options = categoryGradientMap[cat] || categoryGradientMap.default;
@@ -1024,7 +1169,10 @@ function findMatchingEvents(q) {
     ev.name.toLowerCase().includes(lq) ||
     ev.city.toLowerCase().includes(lq) ||
     ev.country.toLowerCase().includes(lq) ||
-    ev.screenings.some(s => s.venue.toLowerCase().includes(lq))
+    ev.screenings.some(s =>
+      (s.venue && s.venue.toLowerCase().includes(lq)) ||
+      (s.geoLabel && s.geoLabel.toLowerCase().includes(lq))
+    )
   ).slice(0, 5);
 }
 
@@ -1778,7 +1926,7 @@ function addMapMarkers() {
     const pressLink = !ev.upcoming && ev.press ? `<a href="#" class="popup-link past" style="margin-left:10px;color:var(--mid);font-size:11px;" onclick="openPressPopover('${ev.id}', this); event.preventDefault();">${t('pressLink')} \u2192</a>` : '';
     let popupDateInfo = '';
     if (ev.screenings.length > 0) {
-      popupDateInfo = `<div class="popup-screenings">${ev.screenings.map(s => `<div class="popup-screening-row"><span><strong>${s.date}</strong>${s.time?' · '+s.time:''}${s.venue?' · '+s.venue:''}${buildQATag(ev.id, s.venue, s.workshop)}</span></div>`).join('')}</div>`;
+      popupDateInfo = `<div class="popup-screenings">${ev.screenings.map(s => `<div class="popup-screening-row"><span>${formatScreeningRowContent(s, ev)}</span></div>`).join('')}</div>`;
     } else {
       popupDateInfo = `<div class="popup-meta">${ev.dateRange}</div>`;
     }
@@ -1819,7 +1967,7 @@ function showMapCardPanel(ev, marker) {
   let dateSection = '';
   if (hasScreenings) {
     dateSection = ev.screenings.map(s =>
-      `<div class="card-meta">${calIcon}<span>${s.date}${s.time ? ' · ' + s.time : ''}${s.venue ? ' · ' + s.venue : ''}${buildQATag(ev.id, s.venue, s.workshop)}</span></div>`
+      `<div class="card-meta">${calIcon}<span>${formatScreeningRowContent(s, ev)}</span></div>`
     ).join('');
   } else {
     dateSection = `<div class="card-meta">${calIcon}${ev.dateRange}</div>`;
@@ -1977,7 +2125,7 @@ function renderList() {
     let dateSection = '';
     if (hasScreenings) {
       dateSection = ev.screenings.map(s =>
-        `<div class="card-meta">${calIcon}<span>${s.date}${s.time ? ' · ' + s.time : ''}${s.venue ? ' · ' + s.venue : ''}${buildQATag(ev.id, s.venue)}</span></div>`
+        `<div class="card-meta">${calIcon}<span>${formatScreeningRowContent(s, ev)}</span></div>`
       ).join('');
     } else {
       dateSection = `<div class="card-meta">${calIcon}${ev.dateRange}${distanceDisplay}</div>`;
@@ -2032,7 +2180,7 @@ function matchesFilters(ev) {
   if(typeFilter!=='all' && ev.type!==typeFilter) return false;
   if(searchQuery){
     const q=searchQuery.toLowerCase();
-    const textMatch = `${ev.name} ${ev.city} ${ev.country} ${ev.screenings.map(s=>s.venue).join(' ')}`.toLowerCase().includes(q);
+    const textMatch = `${ev.name} ${ev.city} ${ev.country} ${ev.screenings.map(s => `${s.venue||''} ${s.geoLabel||''}`).join(' ')}`.toLowerCase().includes(q);
     // Also check if online event covers the searched region
     const onlineMatch = ev.online ? onlineCoversRegion(ev.online, q) : false;
     if(!textMatch && !onlineMatch) return false;
