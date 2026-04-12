@@ -735,6 +735,26 @@ let lightboxEvId = null, lightboxSlideIdx = 0;
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => { document.documentElement.lang = currentLang; document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === currentLang)); if (currentLang !== 'en') rebuildUI(); initMap(); renderList(); bindEvents(); checkURLParams(); });
+
+// Webflow renders Multi-Image Collection Lists client-side via <script type="text/x-wf-template">.
+// The <img> tags may not exist yet when loadEventsFromCMS() runs at parse time.
+// Re-scan for images after Webflow's JS has finished rendering and re-render if new images found.
+window.addEventListener('load', () => {
+  let found = false;
+  events.forEach(ev => {
+    if (ev.eventImages && ev.eventImages.length > 0) return;
+    const el = document.querySelector(`.cms-event-item[data-id="${ev.id}"]`);
+    if (!el) return;
+    const scope = el.closest('.w-dyn-item') || el.parentElement;
+    const imgContainer = scope ? scope.querySelector('.cms-event-images') : null;
+    if (!imgContainer) return;
+    const imgs = Array.from(imgContainer.querySelectorAll('img'))
+      .map(img => img.getAttribute('src') || '')
+      .filter(src => src && /^https?:\/\//.test(src));
+    if (imgs.length > 0) { ev.eventImages = imgs; found = true; }
+  });
+  if (found) renderList();
+});
 function checkURLParams() { const v = new URLSearchParams(window.location.search).get('view'); if (v && ['list','map','hybrid'].includes(v)) setView(v); }
 
 // ===== CAROUSEL =====
