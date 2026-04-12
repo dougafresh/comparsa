@@ -6,8 +6,8 @@
     --shadow: 0 2px 12px rgba(0,0,0,0.08); --shadow-hover: 0 8px 28px rgba(0,0,0,0.12);
     --font: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     --nav-height: 0px; --filter-height: 112px;  /* nav-height is 0 because Webflow's own nav sits above the explorer */
-    --upcoming-bg: rgba(232,97,77,0.10); --upcoming-text: #e8614d;
-    --past-bg: rgba(45,130,120,0.08); --past-text: #2d8278;
+    --upcoming-bg: rgba(45,130,120,0.10); --upcoming-text: #2d8278;
+    --past-bg: rgba(240,168,48,0.10); --past-text: #c48a1a;
     --brand-teal: #2d8278; --brand-coral: #e8614d; --img-placeholder: #eae4d9;
   }
   html { font-size: 16px; }
@@ -24,18 +24,54 @@
   /* FILTER BAR */
   .filter-bar { background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 12px 24px; z-index: 99; position: relative; display: flex; flex-direction: column; gap: 10px; }
   .filter-row-1 { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .filter-row-2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .filter-row-2 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .type-filter-label { font-size: 12.5px; font-weight: 600; color: var(--mid); white-space: nowrap; }
+  .type-toggle {
+    display: inline-flex;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    background: #f5f0eb;
+    flex-shrink: 0;
+  }
+  .type-toggle-btn {
+    padding: 7px 14px;
+    border: none;
+    background: transparent;
+    font-family: var(--font);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--mid);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .type-toggle-btn:hover { color: var(--dark); }
+  .type-toggle-btn.active {
+    background: var(--brand-coral);
+    color: #fff;
+    box-shadow: 0 1px 4px rgba(232,97,77,0.2);
+  }
+  /* Time filter: upcoming = teal/green, past = amber/yellow */
+  .type-toggle-btn.active[data-filter="upcoming"] {
+    background: var(--brand-teal);
+    box-shadow: 0 1px 4px rgba(45,130,120,0.3);
+  }
+  .type-toggle-btn.active[data-filter="past"] {
+    background: #f0a830;
+    box-shadow: 0 1px 4px rgba(240,168,48,0.3);
+  }
   .filter-group { display: flex; gap: 6px; align-items: center; }
   .filter-divider { width: 1px; height: 24px; background: var(--border); }
   .filter-btn { padding: 7px 16px; border-radius: 20px; border: 1px solid var(--border); background: transparent; font-size: 13px; font-weight: 500; color: var(--mid); transition: all 0.15s; }
   .filter-btn:hover { border-color: var(--dark); color: var(--dark); }
   .filter-btn.active { background: var(--brand-coral); color: #fff; border-color: var(--brand-coral); box-shadow: 0 2px 8px rgba(232,97,77,0.25); }
-  .filter-btn[data-filter="upcoming"] { color: #c48a1a; border-color: rgba(240,168,48,0.35); }
-  .filter-btn[data-filter="upcoming"]:hover { color: #b37a0a; border-color: rgba(240,168,48,0.6); }
-  .filter-btn.active[data-filter="upcoming"] { background: #f0a830; color: #fff; border-color: #f0a830; box-shadow: 0 2px 8px rgba(240,168,48,0.3); }
-  .filter-btn[data-filter="past"] { color: #6b5b8a; border-color: rgba(124,107,158,0.35); }
-  .filter-btn[data-filter="past"]:hover { color: #5c4d7a; border-color: rgba(124,107,158,0.6); }
-  .filter-btn.active[data-filter="past"] { background: var(--brand-teal); color: #fff; border-color: var(--brand-teal); box-shadow: 0 2px 8px rgba(45,130,120,0.3); }
+  .filter-btn[data-filter="upcoming"] { color: #2d8278; border-color: rgba(45,130,120,0.35); }
+  .filter-btn[data-filter="upcoming"]:hover { color: #236860; border-color: rgba(45,130,120,0.6); }
+  .filter-btn.active[data-filter="upcoming"] { background: var(--brand-teal); color: #fff; border-color: var(--brand-teal); box-shadow: 0 2px 8px rgba(45,130,120,0.3); }
+  .filter-btn[data-filter="past"] { color: #c48a1a; border-color: rgba(240,168,48,0.35); }
+  .filter-btn[data-filter="past"]:hover { color: #b37a0a; border-color: rgba(240,168,48,0.6); }
+  .filter-btn.active[data-filter="past"] { background: #f0a830; color: #fff; border-color: #f0a830; box-shadow: 0 2px 8px rgba(240,168,48,0.3); }
 
   /* Region toggle switch */
   .region-toggle {
@@ -227,9 +263,9 @@
   }
   .card-hero-static .hero-upcoming-tag {
     position: absolute; top: 8px; right: 8px;
-    background: var(--brand-coral); color: #fff; font-size: 9px; font-weight: 700;
-    padding: 3px 8px; border-radius: 5px; letter-spacing: 0.2px;
-    box-shadow: 0 1px 6px rgba(232,97,77,0.35);
+    background: #e04a3a; color: #fff; font-size: 12px; font-weight: 700;
+    padding: 4px 10px; border-radius: 6px; letter-spacing: 0.2px;
+    box-shadow: 0 2px 6px rgba(224,74,58,0.4);
   }
   /* Gradient layer (behind logo, above card background) */
   .event-gradient {
@@ -246,6 +282,9 @@
     width: 55%; max-width: 180px; display: block;
     filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
   }
+  /* Inline SVG logos: ensure the <svg> inside the container div fills it */
+  div.event-logo { overflow: hidden; }
+  div.event-logo svg { width: 100%; height: auto; display: block; }
   /* Text content sits above gradient */
   .card-hero-static .hero-event-name,
   .card-hero-static .hero-upcoming-tag {
@@ -256,12 +295,12 @@
   .award-badge {
     position: absolute; top: 8px; left: 8px; z-index: 5;
     background: rgba(255,255,255,0.9); border-radius: 16px;
-    padding: 3px 8px 3px 6px; display: flex; align-items: center; gap: 3px;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.1); font-size: 9px; font-weight: 700;
+    padding: 4px 10px 4px 8px; display: flex; align-items: center; gap: 4px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.1); font-size: 12px; font-weight: 700;
     color: var(--dark); backdrop-filter: blur(4px);
   }
   .award-badge .award-icon {
-    width: 12px; height: 12px; display: flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; display: flex; align-items: center; justify-content: center;
   }
   .award-badge.jury .award-icon { color: #d4a017; }
   .award-badge.audience .award-icon { color: var(--brand-red); }
@@ -316,23 +355,23 @@
   }
   .event-card:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
 
-  /* Upcoming: warm amber left bar */
+  /* Upcoming: cool teal left bar */
   .event-card.card-upcoming {
-    border-color: var(--border);
-    border-left: 5px solid #f0a830;
-    background: var(--card-bg);
-  }
-  .event-card.card-upcoming:hover { border-color: rgba(240,168,48,0.4); border-left: 5px solid #f5b842; }
-  .event-card.card-upcoming .card-meta svg { color: #d4940a; }
-
-  /* Past: cool teal left bar */
-  .event-card.card-past {
     border-color: var(--border);
     border-left: 5px solid var(--brand-teal);
     background: var(--card-bg);
   }
-  .event-card.card-past:hover { border-color: rgba(45,130,120,0.35); border-left: 5px solid #3a9e92; }
-  .event-card.card-past .card-meta svg { color: var(--brand-teal); }
+  .event-card.card-upcoming:hover { border-color: rgba(45,130,120,0.35); border-left: 5px solid #3a9e92; }
+  .event-card.card-upcoming .card-meta svg { color: var(--brand-teal); }
+
+  /* Past: warm amber left bar */
+  .event-card.card-past {
+    border-color: var(--border);
+    border-left: 5px solid #f0a830;
+    background: var(--card-bg);
+  }
+  .event-card.card-past:hover { border-color: rgba(240,168,48,0.4); border-left: 5px solid #f5b842; }
+  .event-card.card-past .card-meta svg { color: #d4940a; }
 
   .event-card.highlighted { border-color: var(--brand-coral); border-left-color: var(--brand-coral); box-shadow: 0 0 0 3px rgba(232,97,77,0.15), var(--shadow-hover); }
   .card-body { padding: 14px 16px; }
@@ -459,6 +498,11 @@
   .main.view-list .map-panel { flex: 0; width: 0; overflow: hidden; }
   .main.view-list .list-panel { width: 100%; }
   .main.view-list .screening-grid { grid-template-columns: repeat(3, 1fr); }
+  /* List view: scale up logos, badges, and labels to match larger card hero */
+  .main.view-list .event-logo { width: 65%; max-width: 260px; }
+  .main.view-list .award-badge { font-size: 14px; padding: 5px 12px 5px 10px; gap: 5px; }
+  .main.view-list .award-badge .award-icon { width: 18px; height: 18px; }
+  .main.view-list .hero-upcoming-tag { font-size: 14px; padding: 5px 14px; border-radius: 7px; background: #e04a3a; box-shadow: 0 2px 8px rgba(224,74,58,0.4); }
   .main.view-map .list-panel { width: 0; overflow: hidden; padding: 0; }
   .main.view-map .map-panel { flex: 1; }
   .main.view-hybrid .list-panel { width: 44%; }
@@ -555,21 +599,21 @@
   }
   .marker-dot:hover { transform: scale(1.4); }
   .marker-upcoming {
-    background: #f0a830;
+    background: var(--brand-teal);
     width: 18px;
     height: 18px;
     animation: markerPulse 2.5s infinite;
   }
   .marker-happened {
-    background: var(--brand-teal);
+    background: #f0a830;
     width: 14px;
     height: 14px;
   }
   .marker-highlighted { transform: scale(1.4); }
   @keyframes markerPulse {
-    0% { box-shadow: 0 0 0 0 rgba(240, 168, 48, 0.35); }
-    70% { box-shadow: 0 0 0 7px rgba(240, 168, 48, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(240, 168, 48, 0); }
+    0% { box-shadow: 0 0 0 0 rgba(45, 130, 120, 0.35); }
+    70% { box-shadow: 0 0 0 7px rgba(45, 130, 120, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(45, 130, 120, 0); }
   }
 
   /* === LABEL OVERLAY (appended to map container, z-index below markers/popups) === */
@@ -638,6 +682,16 @@
   .leaflet-bar a:hover { background: #faf6ef !important; }
   .leaflet-control-attribution { background: rgba(255,255,255,0.85) !important; color: var(--light) !important; }
   .leaflet-control-attribution a { color: var(--mid) !important; }
+  .reset-map-btn {
+    width: 34px !important; height: 34px !important;
+    display: flex !important; align-items: center; justify-content: center;
+    background: #fff !important; border: none !important;
+    border-radius: 4px !important; cursor: pointer;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.15);
+    color: var(--mid);
+    transition: color 0.15s, background 0.15s;
+  }
+  .reset-map-btn:hover { color: var(--dark); background: #f5f0eb !important; }
 
   /* === NOTIFY BANNER === */
   .notify-banner {
