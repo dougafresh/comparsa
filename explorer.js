@@ -451,7 +451,7 @@ function loadEventsFromCMS() {
       online: online,
       screenings: screenings,
       flyer: d.flyer || undefined,
-      logo: d.logo || undefined,
+      logo: d.logo || (scope.querySelector('.cms-event-logo') ? scope.querySelector('.cms-event-logo').src : undefined),
       eventImages: imgUrls.length > 0 ? imgUrls : undefined
     };
   });
