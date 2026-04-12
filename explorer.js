@@ -452,15 +452,8 @@ function loadEventsFromCMS() {
       screenings: screenings,
       flyer: d.flyer || undefined,
       logo: d.logo || undefined,
-      eventImages: imgUrls.length > 0 ? imgUrls : undefined,
-      _status: d.status || ''
+      eventImages: imgUrls.length > 0 ? imgUrls : undefined
     };
-  }).filter(ev => {
-    // Only show events whose Event Status is "Announced" (managed in Airtable, synced to Webflow).
-    // Events that are unannounced, tentative, etc. are excluded from the explorer.
-    const status = ev._status;
-    delete ev._status;
-    return /announced/i.test(status);
   });
 }
 
