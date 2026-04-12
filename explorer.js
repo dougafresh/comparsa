@@ -2767,4 +2767,4 @@ clearLocationChip = function() {
   _origClearLocationChip();
   hideNotifyBanner();
 };
-</script>
+
