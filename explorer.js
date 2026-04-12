@@ -412,8 +412,7 @@ function loadEventsFromCMS() {
     // Compute `upcoming`:
     //   1. If any screening is still in the future (in-person/live: date hasn't passed;
     //      on-demand: end date hasn't passed), the event is upcoming.
-    //   2. Otherwise fall back to Event Status string.
-    //   3. Otherwise compare Event End / Event Start to today.
+    //   2. Otherwise compare Event End / Event Start to today.
     const now = new Date();
     let isUpcoming = false;
     if (screenings.length > 0) {
@@ -424,9 +423,7 @@ function loadEventsFromCMS() {
         return s.dateISO && new Date(s.dateISO) >= now;
       });
     }
-    if (!isUpcoming && d.upcoming) {
-      isUpcoming = /upcoming|future|active/i.test(d.upcoming);
-    } else if (!isUpcoming && !screenings.length) {
+    if (!isUpcoming && !screenings.length) {
       if (d.eventEnd) isUpcoming = new Date(d.eventEnd) >= now;
       else if (d.eventStart) isUpcoming = new Date(d.eventStart) >= now;
     }
@@ -449,14 +446,21 @@ function loadEventsFromCMS() {
       awards: awards,
       press: pressItems.length > 0 ? true : null,
       pressItems: pressItems,
-      type: (d.type || 'festival').toLowerCase(),
+      type: /festival/i.test(d.type) ? 'festival' : (d.type ? 'special' : 'festival'),
       prestige: parseInt(d.prestige) || 2,
       online: online,
       screenings: screenings,
       flyer: d.flyer || undefined,
       logo: d.logo || undefined,
-      eventImages: imgUrls.length > 0 ? imgUrls : undefined
+      eventImages: imgUrls.length > 0 ? imgUrls : undefined,
+      _status: d.status || ''
     };
+  }).filter(ev => {
+    // Only show events whose Event Status is "Announced" (managed in Airtable, synced to Webflow).
+    // Events that are unannounced, tentative, etc. are excluded from the explorer.
+    const status = ev._status;
+    delete ev._status;
+    return /announced/i.test(status);
   });
 }
 

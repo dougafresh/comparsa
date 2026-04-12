@@ -408,8 +408,9 @@
   .leaflet-tile-pane { }
   .leaflet-tile { will-change: transform; backface-visibility: hidden; outline: 1px solid transparent; }
   .leaflet-marker-pane, .leaflet-popup-pane, .leaflet-overlay-pane { filter: none; }
-  .leaflet-popup-pane { z-index: 800 !important; }
-  .leaflet-popup { z-index: 800 !important; }
+  .leaflet-marker-pane { z-index: 600 !important; }
+  .leaflet-popup-pane { z-index: 900 !important; }
+  .leaflet-popup { z-index: 900 !important; }
   .leaflet-popup-content-wrapper { border-radius: 10px !important; font-family: var(--font) !important; box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important; padding: 0 !important; overflow: hidden; background: #fffbf3 !important; color: var(--dark) !important; }
   .leaflet-popup-tip { background: #fffbf3 !important; }
   .leaflet-popup-content { margin: 0 !important; width: 280px !important; max-width: 280px; }
