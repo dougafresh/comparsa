@@ -986,9 +986,104 @@ function getHeroGradient(id, category) {
 }
 
 function buildFlyerLink(ev) {
-  if (!ev.flyer || !ev.upcoming) return '';
+  if (!ev.flyer) return '';
+  // Show flyer only if at least one screening is today or in the future
+  const today = new Date(); today.setHours(0,0,0,0);
+  const hasFutureScreening = ev.screenings.some(s => {
+    let d = null;
+    if (s.dateISO) { d = new Date(s.dateISO); d.setHours(0,0,0,0); }
+    else if (s.date) { d = parseDate(s.date); }
+    return d && !isNaN(d.getTime()) && d >= today;
+  });
+  if (!hasFutureScreening) return '';
   const dlIcon = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
-  return `<a href="${ev.flyer}" target="_blank" download class="card-link flyer-link" onclick="event.stopPropagation()">${dlIcon} Shareable Flyer</a>`;
+  return `<a href="#" class="card-link flyer-link" onclick="event.stopPropagation(); event.preventDefault(); openFlyerPreview('${ev.flyer}', '${ev.name.replace(/'/g, "\\'")}', this);">${dlIcon} Shareable Flyer</a>`;
+}
+
+function openFlyerPreview(url, name, anchorEl) {
+  // Remove existing preview if any
+  let overlay = document.getElementById('flyerPreviewOverlay');
+  if (overlay) overlay.remove();
+
+  overlay = document.createElement('div');
+  overlay.id = 'flyerPreviewOverlay';
+  overlay.className = 'flyer-preview-overlay';
+  overlay.innerHTML = `
+    <div class="flyer-preview-panel">
+      <button class="flyer-preview-close" onclick="closeFlyerPreview()">&times;</button>
+      <div class="flyer-preview-image-wrap">
+        <img src="${url}" alt="${name} flyer" class="flyer-preview-img">
+      </div>
+      <div class="flyer-preview-actions">
+        <button class="flyer-download-btn" onclick="event.stopPropagation(); downloadFlyer('${url}', '${name.replace(/'/g, "\\'")}');">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Flyer
+        </button>
+      </div>
+    </div>
+  `;
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeFlyerPreview();
+  });
+  document.body.appendChild(overlay);
+
+  // Position panel near the clicked link
+  if (anchorEl) {
+    const panel = overlay.querySelector('.flyer-preview-panel');
+    const rect = anchorEl.getBoundingClientRect();
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const pw = 520, ph = panel.offsetHeight || 500;
+
+    // Horizontal: center on the link, clamped to viewport
+    let left = rect.left + rect.width / 2 - pw / 2;
+    left = Math.max(12, Math.min(left, vw - pw - 12));
+
+    // Vertical: prefer above the link; if not enough room, go below
+    let top = rect.top - ph - 12;
+    if (top < 12) top = rect.bottom + 12;
+    // If still off-screen, clamp
+    top = Math.max(12, Math.min(top, vh - ph - 12));
+
+    panel.style.position = 'fixed';
+    panel.style.left = left + 'px';
+    panel.style.top = top + 'px';
+    panel.style.margin = '0';
+  }
+
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+}
+
+function closeFlyerPreview() {
+  const overlay = document.getElementById('flyerPreviewOverlay');
+  if (overlay) {
+    overlay.classList.remove('visible');
+    setTimeout(() => overlay.remove(), 200);
+  }
+}
+
+function downloadFlyer(url, name) {
+  // Fetch as blob to force save-as dialog instead of navigating
+  const btn = document.querySelector('.flyer-download-btn');
+  if (btn) { btn.textContent = 'Downloading...'; btn.style.opacity = '0.7'; }
+  fetch(url)
+    .then(r => r.blob())
+    .then(blob => {
+      const ext = url.match(/\.(png|jpg|jpeg|pdf|webp)/i);
+      const filename = (name || 'flyer').replace(/[^a-zA-Z0-9 _-]/g, '') + (ext ? '.' + ext[1] : '.png');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+      if (btn) { btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Downloaded!'; btn.style.opacity = '1'; }
+    })
+    .catch(() => {
+      // Fallback: open in new tab
+      window.open(url, '_blank');
+      if (btn) { btn.textContent = 'Download Flyer'; btn.style.opacity = '1'; }
+    });
 }
 
 // Render an event logo: inline SVGs (so gradients work), use <img> for raster
@@ -2182,6 +2277,27 @@ function closeMapCardPanel() {
   popupHiddenLines = [];
 }
 
+function updateMapEmptyOverlay(show) {
+  let overlay = document.getElementById('mapEmptyOverlay');
+  if (show) {
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'mapEmptyOverlay';
+      overlay.className = 'map-empty-overlay';
+      overlay.innerHTML = `
+        <div class="map-empty-message">
+          <p>No screenings in this area</p>
+          <button class="zoom-out-btn" onclick="map.flyTo([25, -65], 2.5, {duration: 1.0});">Zoom out</button>
+        </div>
+      `;
+      document.getElementById('map').appendChild(overlay);
+    }
+    overlay.classList.add('visible');
+  } else if (overlay) {
+    overlay.classList.remove('visible');
+  }
+}
+
 function highlightMarker(id) {
   leafletMarkers.forEach(m => {
     const el = m.marker.getElement();
@@ -2263,7 +2379,7 @@ function sortEvents(eventsToSort) {
 // ===== LIST =====
 function renderList() {
   const grid = document.getElementById('screeningGrid');
-  let list = currentView==='hybrid' ? filteredEvents : events.filter(matchesFilters);
+  let list = (currentView==='hybrid' || currentView==='map') ? filteredEvents : events.filter(matchesFilters);
   list = sortEvents(list);
 
   if (!list.length) {
@@ -2350,26 +2466,14 @@ function matchesFilters(ev) {
 }
 let lastVisibleEvents = null;
 let showingCachedResults = false;
-const MIN_EVENTS_IN_VIEW = 4;
 function filterByMapBounds() {
   if(!map) return; const b=map.getBounds();
   const allMatching = events.filter(ev => matchesFilters(ev));
   const onlineEvents = allMatching.filter(ev => ev.lat===0 && ev.lng===0);
   const physicalInBounds = allMatching.filter(ev => ev.lat!==0 || ev.lng!==0).filter(ev => b.contains([ev.lat,ev.lng]));
-  if (physicalInBounds.length >= MIN_EVENTS_IN_VIEW) {
-    // Enough physical events in view — show them + online
-    filteredEvents = [...physicalInBounds, ...onlineEvents];
-    lastVisibleEvents = filteredEvents.slice();
-    showingCachedResults = false;
-  } else if (lastVisibleEvents && lastVisibleEvents.length > 0) {
-    // Too few in view — fall back to last good set
-    filteredEvents = lastVisibleEvents;
-    showingCachedResults = true;
-  } else {
-    // No cache yet — show whatever we have + online
-    filteredEvents = [...physicalInBounds, ...onlineEvents];
-    showingCachedResults = false;
-  }
+  filteredEvents = [...physicalInBounds, ...onlineEvents];
+  // Show/hide map overlay when no physical pins in view
+  updateMapEmptyOverlay(physicalInBounds.length === 0 && allMatching.some(ev => ev.lat !== 0 || ev.lng !== 0));
   renderList();
 }
 function applyFilters() {
@@ -2401,6 +2505,7 @@ function setView(view) {
   document.querySelectorAll('.view-toggle').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
   closeMapCardPanel();
   setTimeout(()=>{ if(map) { map.invalidateSize(); if(view==='map') { map.setView([25, -65], 3, {animate:false}); addMapMarkers(); } } if(view==='hybrid' || view==='map') filterByMapBounds(); else { filteredEvents=events.filter(matchesFilters); renderList(); } },350);
+  setTimeout(()=>{ if(map) map.invalidateSize(); },700);
   const u=new URL(window.location); u.searchParams.set('view',currentView); window.history.replaceState({},'',u);
 }
 
