@@ -962,21 +962,14 @@ function buildFlyerLink(ev) {
 }
 
 function buildCarouselSlides(ev) {
-  // If event has a logo, always show gradient + logo as the hero slide
-  if (ev.logo) {
-    return `<div class="carousel-slide hero-slide" style="background:${getHeroGradient(ev.id, ev.type)};">
-      <div class="event-gradient" style="background:${getHeroGradient(ev.id, ev.type)}"></div>
-      <img class="event-logo" src="${ev.logo}" alt="${ev.name} logo">
-    </div>`;
-  }
-  // Multiple event images: build a slide for each, with website image first if not already in eventImages
+  // Multiple event images: show photo carousel (logo becomes first slide if present)
   if (ev.eventImages && ev.eventImages.length > 0) {
     let slides = '';
-    const photosAlreadyIncluded = ev.photos && ev.eventImages.includes(ev.photos);
-    if (ev.photos && !photosAlreadyIncluded) {
-      slides += `<div class="carousel-slide" style="background:var(--img-placeholder);">
-        <img src="${ev.photos}" alt="${ev.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy"
-          onerror="this.style.display='none';this.parentElement.style.background='${getHeroGradient(ev.id, ev.type)}'">
+    // If event also has a logo, show it as the first slide on a gradient
+    if (ev.logo) {
+      slides += `<div class="carousel-slide hero-slide" style="background:${getHeroGradient(ev.id, ev.type)};">
+        <div class="event-gradient" style="background:${getHeroGradient(ev.id, ev.type)}"></div>
+        <img class="event-logo" src="${ev.logo}" alt="${ev.name} logo">
       </div>`;
     }
     slides += ev.eventImages.map((url, i) => `<div class="carousel-slide" style="background:var(--img-placeholder);">
@@ -984,6 +977,13 @@ function buildCarouselSlides(ev) {
         onerror="this.style.display='none';this.parentElement.style.background='${getHeroGradient(ev.id, ev.type)}'">
     </div>`).join('');
     return slides;
+  }
+  // Logo only (no event images): show gradient + logo
+  if (ev.logo) {
+    return `<div class="carousel-slide hero-slide" style="background:${getHeroGradient(ev.id, ev.type)};">
+      <div class="event-gradient" style="background:${getHeroGradient(ev.id, ev.type)}"></div>
+      <img class="event-logo" src="${ev.logo}" alt="${ev.name} logo">
+    </div>`;
   }
   // Single photo
   if (ev.photos) {
