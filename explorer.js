@@ -356,11 +356,32 @@ function loadEventsFromCMS() {
         encore: sd.encore === 'true' || sd.encore === 'True' ? true : undefined
       };
     });
-    // Parse multi-image field: look for <img> elements inside a nested .cms-event-images div
+    // Parse multi-image field. Webflow's Multi-Image binding uses a Lightbox
+    // element, which at publish time emits a <script class="w-json"> JSON blob
+    // listing every image URL. We read from that first, then fall back to any
+    // plain <img> tags inside .cms-event-images (in case someone used an
+    // Image element bound to a single-image field instead).
     const imgContainer = scope.querySelector('.cms-event-images');
-    const imgUrls = imgContainer
-      ? Array.from(imgContainer.querySelectorAll('img')).map(i => i.src).filter(Boolean)
-      : [];
+    let imgUrls = [];
+    if (imgContainer) {
+      const wfJson = imgContainer.querySelector('script.w-json');
+      if (wfJson) {
+        try {
+          const data = JSON.parse(wfJson.textContent || '{}');
+          const items = Array.isArray(data.items) ? data.items : [];
+          imgUrls = items
+            .map(it => (it && (it.url || (it.image && it.image.url))) || '')
+            .filter(Boolean);
+        } catch (e) {
+          console.warn('Explorer: could not parse Webflow lightbox JSON', e);
+        }
+      }
+      if (imgUrls.length === 0) {
+        imgUrls = Array.from(imgContainer.querySelectorAll('img'))
+          .map(i => i.src)
+          .filter(Boolean);
+      }
+    }
     // Parse nested multi-reference Awards: <span class="cms-award" data-key="audience-award"></span>
     // (data-key should be bound to the Award's Slug; data-name is the display name fallback)
     const awardEls = scope.querySelectorAll('.cms-event-awards .cms-award');
@@ -369,7 +390,7 @@ function loadEventsFromCMS() {
       name: (a.dataset.name || a.textContent || '').trim()
     })).filter(a => a.key || a.name);
     // Parse nested multi-reference Press Hits: <span class="cms-press" data-title="..." data-link="..." data-image="..."></span>
-    const pressEls = scope.querySelectorAll('.cms-event-presses .cms-press');
+    const pressEls = scope.querySelectorAll('.cms-event-press-hits .cms-press');
     const pressItems = Array.from(pressEls).map(p => ({
       title: (p.dataset.title || p.dataset.name || '').trim(),
       link: (p.dataset.link || p.dataset.url || '').trim(),
