@@ -451,7 +451,15 @@ function loadEventsFromCMS() {
       online: online,
       screenings: screenings,
       flyer: d.flyer || undefined,
-      logo: d.logo || (scope.querySelector('.cms-event-logo') ? scope.querySelector('.cms-event-logo').src : undefined),
+      logo: (function() {
+        if (d.logo) return d.logo;
+        const logoEl = scope.querySelector('.cms-event-logo');
+        if (logoEl) {
+          const src = logoEl.getAttribute('src') || '';
+          if (src && /^https?:\/\//.test(src) && /\.(svg|png|jpg|jpeg|gif|webp)/i.test(src)) return src;
+        }
+        return undefined;
+      })(),
       eventImages: imgUrls.length > 0 ? imgUrls : undefined
     };
   });
