@@ -434,6 +434,7 @@ function formatLocation(ev) {
 // Single date → "Apr 18"
 function formatWebsiteDates(dates, displayType) {
   if (!dates || dates.length === 0) return null;
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const parsed = dates.map(d => new Date(d + 'T00:00:00'));
   if (parsed.some(d => isNaN(d.getTime()))) return null;
