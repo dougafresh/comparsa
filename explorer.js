@@ -47,6 +47,13 @@ const translations = {
     screeningThisDay: 'Screening this {day}',
     screeningInDays: 'Screening in {n} days',
     screeningOnDate: 'Screening {date}',
+    // Streaming countdown (for events with upcoming or active streaming windows)
+    streamingOnlineToday: 'Streaming online today!',
+    streamingOnlineTomorrow: 'Streaming online tomorrow!',
+    streamingOnlineThisDay: 'Streaming online this {day}',
+    streamingOnlineInDays: 'Streaming online in {n} days',
+    streamingOnlineOnDate: 'Streaming online {date}',
+    streamableUntil: 'Streamable until {date}',
     upcomingFallback: 'Upcoming',
     // Awards
     juryAward: 'Jury Award', audienceAward: 'Audience Award', impactAward: 'Impact Award',
@@ -110,6 +117,12 @@ const translations = {
     screeningThisDay: 'Proyección este {day}',
     screeningInDays: 'Proyección en {n} días',
     screeningOnDate: 'Proyección {date}',
+    streamingOnlineToday: '¡Transmitiendo en línea hoy!',
+    streamingOnlineTomorrow: '¡Transmitiendo en línea mañana!',
+    streamingOnlineThisDay: 'Transmitiendo en línea este {day}',
+    streamingOnlineInDays: 'Transmitiendo en línea en {n} días',
+    streamingOnlineOnDate: 'Transmitiendo en línea {date}',
+    streamableUntil: 'Disponible hasta {date}',
     upcomingFallback: 'Próximamente',
     // Awards
     juryAward: 'Premio del Jurado', audienceAward: 'Premio del Público', impactAward: 'Premio de Impacto',
@@ -316,6 +329,60 @@ function formatDateRange(startISO, endISO) {
   return `${sM} ${sD}, ${sY} \u2013 ${eM} ${eD}, ${eY}`;
 }
 
+// ===== SLUG-BASED DATA LOOKUP =====
+// Airtable is the source of truth for Event Status and State, but these fields
+// may not yet be synced to Webflow CMS. This lookup fills in the gaps so the
+// explorer can filter by status and display "City, State" for US/Canada events.
+const SLUG_DATA = {
+  // — Event Status overrides (only non-"Announced" / non-"Past" statuses need listing;
+  //   the CMS already marks past events via date comparison) —
+  'womens-international-peace-centre': { status: 'invited' },
+  'latino-and-native-american-film-festival': { status: 'invited', state: 'CT' },
+  'philedelphia-latino-arts-and-film-festival-phlaff': { status: 'invited', state: 'PA' },
+  'oacnudh': { status: 'invited' },
+  'costa-rica-festival-internacional-de-cine-crfic': { status: 'invited' },
+  'cine-las-americas': { status: 'invited', state: 'TX' },
+  'fundacion-ixcanul-cine-para-decidir': { status: 'invited' },
+  'river-film-festival-padova': { status: 'invited' },
+  'cinebh-bh-international-film-festival': { status: 'preselected' },
+  // — US / Canada State codes —
+  'charlotte-latino-film-festival': { state: 'NC' },
+  'calgary-international-film-festival': { state: 'AB' },
+  'anchorage-international-film-festival': { state: 'AK' },
+  'nashville-film-festival': { state: 'TN' },
+  'alexandria-film-festival': { state: 'VA' },
+  'ashland-independent-film-festival': { state: 'OR' },
+  'frozen-river-film-festival': { state: 'MN' },
+  'waves-of-change-arts-festival': { state: 'MA' },
+  'afi-latin-american-film-festival': { state: 'MD' },
+  'denver-film-festival': { state: 'CO' },
+  'milwaukee-dialogues-documentary-festival': { state: 'WI' },
+  'sedona-international-film-festival': { state: 'AZ' },
+  'unaff': { state: 'CA' },
+  'woodstock-film-festival': { state: 'NY' },
+  'chicago-latino-film-festival': { state: 'IL' },
+  'port-townsend-film-festival': { state: 'WA' },
+  'heartland-international-film-festival': { state: 'IN' },
+  'calgary-justice-film-festival': { state: 'AB' },
+  'minneapolis-st-paul-international-film-festival': { state: 'MN' },
+  'wayland-high-school-screening': { state: 'MA' },
+  'julien-dubuque-international-film-festival': { state: 'IA' },
+  'coast-film-festival': { state: 'CA' },
+  'act-human-rights-film-festival': { state: 'CO' },
+  'cinefest-latino-boston': { state: 'MA' },
+  'cinema-on-the-bayou': { state: 'LA' },
+  'panorama-portland': { state: 'OR' },
+  'boulder-international-film-festival': { state: 'CO' },
+  'woods-hole-film-festival': { state: 'MA' },
+  'ohsu-psu-screening': { state: 'OR' },
+  'encuentro-colectivo-kind-screening': { state: 'DC' },
+  'chelsea-public-schools-virtual-learning-academy': { state: 'MA' },
+  'mesita-screening': { state: 'DC' },
+  'friendship-bridge-screening': { state: 'CO' },
+  'beyond-our-borders-retreat': { state: 'CO' },
+  'purdue-university-screening': { state: 'IN' },
+};
+
 function loadEventsFromCMS() {
   const items = document.querySelectorAll('.cms-event-item');
   if (!items.length) {
@@ -468,7 +535,22 @@ function loadEventsFromCMS() {
         return undefined;
       })(),
       eventImages: imgUrls.length > 0 ? imgUrls : undefined,
-      eventStatus: (d.eventStatus || '').trim().toLowerCase() || null
+      eventStatus: (function() {
+        const cmsStatus = (d.eventStatus || '').trim().toLowerCase();
+        if (cmsStatus) return cmsStatus;
+        // Fall back to slug-based lookup from Airtable data
+        const slug = d.id || el.getAttribute('data-slug') || '';
+        const lookup = SLUG_DATA[slug];
+        return (lookup && lookup.status) ? lookup.status : null;
+      })(),
+      state: (function() {
+        const cmsState = (d.state || '').trim();
+        if (cmsState) return cmsState;
+        // Fall back to slug-based lookup from Airtable data
+        const slug = d.id || el.getAttribute('data-slug') || '';
+        const lookup = SLUG_DATA[slug];
+        return (lookup && lookup.state) ? lookup.state : null;
+      })()
     };
   }).filter(ev => {
     // Hide upcoming events whose Event Status is not "Announced".
@@ -704,18 +786,39 @@ function onlineCoversRegion(online, searchText) {
 // ===== SMART COUNTDOWN LABEL =====
 function getUpcomingLabel(ev) {
   if (!ev.upcoming) return '';
-  // Online-only events get streaming label
-  if (isOnlineOnly(ev)) {
-    const ss = getStreamStatus(ev.online);
-    if (ss) {
-      if (ss.status === 'live') return t('streamingNow') + '!';
-      return ss.label;
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Check streaming window status (for events with online on-demand periods)
+  let streamLabel = null;
+  if (ev.online) {
+    const streamStart = new Date(ev.online.start); streamStart.setHours(0,0,0,0);
+    const streamEnd = new Date(ev.online.end); streamEnd.setHours(23,59,59,999);
+    if (today >= streamStart && today <= streamEnd) {
+      // Currently streaming — show "Streamable until [date]"
+      const endStr = streamEnd.toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' });
+      streamLabel = { date: streamStart, label: t('streamableUntil', { date: endStr }), active: true };
+    } else if (streamStart > today) {
+      // Streaming hasn't started yet
+      const diffStream = Math.round((streamStart - today) / (1000*60*60*24));
+      let lbl;
+      if (diffStream === 0) lbl = t('streamingOnlineToday');
+      else if (diffStream === 1) lbl = t('streamingOnlineTomorrow');
+      else if (diffStream <= 6) {
+        const dayName = streamStart.toLocaleDateString(dateLocale(), { weekday: 'long' });
+        lbl = t('streamingOnlineThisDay', { day: dayName });
+      } else if (diffStream <= 30) lbl = t('streamingOnlineInDays', { n: diffStream });
+      else lbl = t('streamingOnlineOnDate', { date: streamStart.toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' }) });
+      streamLabel = { date: streamStart, label: lbl, active: false };
     }
   }
-  // Find the next upcoming screening date (prefer ISO dates from Screening Instances)
+
+  // Online-only events: always use streaming label
+  if (isOnlineOnly(ev) && streamLabel) return streamLabel.label;
+
+  // Find the next upcoming in-person / live-stream screening date
   let screenDate = null;
-  const today = new Date(); today.setHours(0,0,0,0);
   for (const s of ev.screenings) {
+    if (s.type === 'online-on-demand') continue; // skip on-demand; handled above
     let d = null;
     if (s.dateISO) { d = new Date(s.dateISO); d.setHours(0,0,0,0); }
     else if (s.date) { d = parseDate(s.date); }
@@ -724,8 +827,16 @@ function getUpcomingLabel(ev) {
   // Fall back to event-level dates if no valid screening date found
   if (!screenDate || isNaN(screenDate.getTime())) {
     if (ev.eventStart) { screenDate = new Date(ev.eventStart); screenDate.setHours(0,0,0,0); }
-    else return t('upcomingFallback');
   }
+
+  // If streaming is currently active, it wins regardless of future screening dates
+  if (streamLabel && streamLabel.active) return streamLabel.label;
+
+  // Compare next screening date vs next streaming start — whichever is sooner wins
+  if (streamLabel && screenDate && streamLabel.date <= screenDate) return streamLabel.label;
+  if (streamLabel && !screenDate) return streamLabel.label;
+
+  // Use screening date for the countdown
   if (!screenDate || isNaN(screenDate.getTime())) return t('upcomingFallback');
   const diffDays = Math.round((screenDate - today) / (1000*60*60*24));
 
@@ -792,7 +903,13 @@ let lightboxEvId = null, lightboxSlideIdx = 0;
     smWrapper.style.height = 'auto';
   }
 
-  // 3. Fix body styles that ScrollSmoother may have set (e.g. height: 88px)
+  // 3. Kill ScrollSmoother JS instance so it doesn't fight our layout
+  if (typeof ScrollSmoother !== 'undefined') {
+    const sm = ScrollSmoother.get && ScrollSmoother.get();
+    if (sm) sm.kill();
+  }
+
+  // 4. Fix body styles that ScrollSmoother may have set (e.g. height: 88px)
   document.body.style.height = '';
   document.body.style.overflow = '';
 })();
@@ -1658,6 +1775,11 @@ function initMap() {
   // Scroll-to-zoom-out: when user scrolls near bottom of list in hybrid mode, zoom out the map
   const listPanel = document.getElementById('listPanel');
   let scrollZoomCooldown = false;
+  // Suppress scroll-zoom-out when list content changes (e.g. after map zoom/pan triggers
+  // filterByMapBounds → renderList). Without this, the shorter list can push the scroll
+  // percentage above 85% and immediately zoom the map back out — causing the "double-click
+  // zoom snaps back" bug.
+  window._suppressScrollZoom = false;
   // Track mouse position over list panel so scroll can highlight mid-flight
   let listMouseX = 0, listMouseY = 0;
   listPanel.addEventListener('mousemove', (e) => { listMouseX = e.clientX; listMouseY = e.clientY; });
@@ -1677,7 +1799,7 @@ function initMap() {
       }
     });
 
-    if (currentView !== 'hybrid' || scrollZoomCooldown || !map) return;
+    if (currentView !== 'hybrid' || scrollZoomCooldown || window._suppressScrollZoom || !map) return;
     const { scrollTop, scrollHeight, clientHeight } = listPanel;
     const scrollPct = scrollTop / (scrollHeight - clientHeight);
     // When scrolled past 85% and map is zoomed in beyond 3.5, zoom out
@@ -2180,7 +2302,7 @@ function addMapMarkers() {
     } else {
       popupDateInfo = `<div class="popup-meta">${ev.dateRange}</div>`;
     }
-    const popup = `${buildPopupHero(ev)}<div class="popup-body">${buildPopupAwardBadge(ev.award, ev.id)}<div class="popup-title">${ev.name}</div>${buildPremiereBadge(ev.id)}<div class="popup-meta">${ev.city}</div>${popupDateInfo}${ev.link!=='#'?`<a href="${ev.link}" target="_blank" class="popup-link ${linkClass}">${linkLabel} \u2192</a>`:''}${pressLink}</div>`;
+    const popup = `${buildPopupHero(ev)}<div class="popup-body">${buildPopupAwardBadge(ev.award, ev.id)}<div class="popup-title">${ev.name}</div>${buildPremiereBadge(ev.id)}<div class="popup-meta">${ev.city}${ev.state ? ', ' + ev.state : ''}</div>${popupDateInfo}${ev.link!=='#'?`<a href="${ev.link}" target="_blank" class="popup-link ${linkClass}">${linkLabel} \u2192</a>`:''}${pressLink}</div>`;
     const marker = L.marker([ev.lat,ev.lng],{icon:markerIcon(ev.upcoming,false)}).addTo(map);
     marker.bindPopup(popup,{offset:[0,2],maxWidth:280,minWidth:280,className:'custom-popup'});
     marker.on('mouseover',()=>{
@@ -2242,7 +2364,7 @@ function showMapCardPanel(ev, marker) {
       <div class="card-title">${ev.name}</div>
       ${buildPremiereBadge(ev.id)}
       ${dateSection}
-      <div class="card-meta">${pinIcon}${ev.city}</div>
+      <div class="card-meta">${pinIcon}${ev.city}${ev.state ? ', ' + ev.state : ''}</div>
       ${buildStreamBadge(ev)}
       ${(ev.link!=='#' || ev.press || ev.flyer) ? `<div class="card-links">${ev.link!=='#'?`<a href="${ev.link}" target="_blank" class="card-link ${linkClass}">${linkLabel}</a>`:''}${buildFlyerLink(ev)}${!ev.upcoming && ev.press?`<a href="#" class="card-link press-link" onclick="openPressPopover('${ev.id}', this); event.stopPropagation(); event.preventDefault();">${t('pressLink')} \u2192</a>`:''}</div>` : ''}
     </div>
@@ -2451,7 +2573,7 @@ function renderList() {
         <div class="card-title">${ev.name}${buildTypeBadge(ev.type)}</div>
         ${buildPremiereBadge(ev.id)}
         ${dateSection}
-        <div class="card-meta">${pinIcon}${ev.city}</div>
+        <div class="card-meta">${pinIcon}${ev.city}${ev.state ? ', ' + ev.state : ''}</div>
         ${buildStreamBadge(ev)}
         ${(ev.link!=='#' || ev.press || ev.flyer || (ev.online && ev.online.link)) ? `<div class="card-links">${ev.link!=='#'?`<a href="${ev.link}" target="_blank" class="${linkClass}" onclick="event.stopPropagation()">${linkLabel}</a>`:''}${buildFlyerLink(ev)}${ev.online && ev.online.link && getStreamStatus(ev.online) && getStreamStatus(ev.online).status==='live' ? `<a href="${ev.online.link}" target="_blank" class="card-link" style="color:#4caf50;" onclick="event.stopPropagation()">${t('watchOnline')} \u2192</a>` : ''}${!ev.upcoming && ev.press?`<a href="#" class="card-link press-link" onclick="openPressPopover('${ev.id}', this); event.stopPropagation(); event.preventDefault();">${t('pressLink')} \u2192</a>`:''}</div>` : ''}
       </div>
@@ -2510,7 +2632,11 @@ function filterByMapBounds() {
   filteredEvents = [...physicalInBounds, ...onlineEvents];
   // Show/hide map overlay when no physical pins in view
   updateMapEmptyOverlay(physicalInBounds.length === 0 && allMatching.some(ev => ev.lat !== 0 || ev.lng !== 0));
+  // Suppress scroll-zoom-out while the list re-renders — content change may shift
+  // the scroll percentage above 85% and trigger an unwanted zoom-out.
+  window._suppressScrollZoom = true;
   renderList();
+  setTimeout(() => { window._suppressScrollZoom = false; }, 600);
 }
 function applyFilters() {
   lastVisibleEvents=null;
