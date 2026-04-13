@@ -434,11 +434,11 @@ function formatLocation(ev) {
 // Single date → "Apr 18"
 function formatWebsiteDates(dates, displayType) {
   if (!dates || dates.length === 0) return null;
+  const MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const parsed = dates.map(d => new Date(d + 'T00:00:00'));
   if (parsed.some(d => isNaN(d.getTime()))) return null;
 
   const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  const fmtFull = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 
   if (parsed.length === 1) return fmt(parsed[0]);
 
@@ -446,14 +446,14 @@ function formatWebsiteDates(dates, displayType) {
 
   if (displayType === 'range') {
     if (sameMonth) {
-      return MONTHS[parsed[0].getUTCMonth()] + ' ' + parsed[0].getUTCDate() + '\u2013' + parsed[1].getUTCDate();
+      return MO[parsed[0].getUTCMonth()] + ' ' + parsed[0].getUTCDate() + '\u2013' + parsed[1].getUTCDate();
     }
     return fmt(parsed[0]) + ' \u2013 ' + fmt(parsed[1]);
   }
 
   // Discrete: show individual dates
   if (sameMonth) {
-    return MONTHS[parsed[0].getUTCMonth()] + ' ' + parsed.map(d => d.getUTCDate()).join(' & ');
+    return MO[parsed[0].getUTCMonth()] + ' ' + parsed.map(d => d.getUTCDate()).join(' & ');
   }
   return parsed.map(d => fmt(d)).join(' & ');
 }
