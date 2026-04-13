@@ -1283,11 +1283,11 @@ const gradientPalette = {
   marine:     ["#1B4F72", "#48A3C0"]
 };
 const categoryGradientMap = {
-  festival:    ["coral", "ocean", "plum", "indigo", "wine", "slate", "marine", "berry"],
+  festival:    ["ocean", "plum", "indigo", "wine", "slate", "marine", "berry"],
   community:   ["teal", "sage", "olive", "forest", "copper", "terracotta", "sunset", "rust"],
   educational: ["ocean", "indigo", "marine", "slate", "plum", "wine", "berry", "teal"],
   special:     ["sunset", "teal", "forest", "terracotta", "olive", "copper", "sage", "rust"],
-  default:     ["coral", "teal", "plum", "forest", "ocean", "sunset", "terracotta", "olive", "indigo", "wine", "copper", "sage", "rust", "marine", "berry", "slate"]
+  default:     ["teal", "plum", "forest", "ocean", "sunset", "terracotta", "olive", "indigo", "wine", "copper", "sage", "rust", "marine", "berry", "slate"]
 };
 function hashString(str) {
   let hash = 0;
@@ -1589,21 +1589,21 @@ function buildCarousel(ev) {
         <div class="event-gradient" style="background:${getHeroGradient(ev.id, ev.type)}"></div>
         ${buildAwardBadge(ev.award, ev.id)}
         ${renderLogo(ev.logo, ev.name + ' logo')}
-        <div class="hero-upcoming-tag" style="position:absolute;top:8px;right:8px;">${getUpcomingLabel(ev)}</div>
+        ${getUpcomingLabel(ev) ? '<div class="hero-upcoming-tag" style="position:absolute;top:8px;right:8px;">' + getUpcomingLabel(ev) + '</div>' : ''}
       </div>`;
     }
     if (ev.photos) {
       return `<div class="card-hero-static" style="background:var(--img-placeholder);padding:0;position:relative;cursor:pointer;" onclick="handleCardClick('${ev.id}')">
         ${buildAwardBadge(ev.award, ev.id)}
         <img src="${ev.photos}" alt="${ev.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;">
-        <div class="hero-upcoming-tag" style="position:absolute;top:8px;right:8px;">${getUpcomingLabel(ev)}</div>
+        ${getUpcomingLabel(ev) ? '<div class="hero-upcoming-tag" style="position:absolute;top:8px;right:8px;">' + getUpcomingLabel(ev) + '</div>' : ''}
       </div>`;
     }
     return `<div class="card-hero-static" style="background:${getHeroGradient(ev.id, ev.type)};cursor:pointer;" onclick="handleCardClick('${ev.id}')">
       <div class="event-gradient" style="background:${getHeroGradient(ev.id, ev.type)}"></div>
       ${buildAwardBadge(ev.award, ev.id)}
       <div class="hero-event-name">${ev.name}</div>
-      <div class="hero-upcoming-tag" style="position:absolute;top:8px;right:8px;">${getUpcomingLabel(ev)}</div>
+      ${getUpcomingLabel(ev) ? '<div class="hero-upcoming-tag" style="position:absolute;top:8px;right:8px;">' + getUpcomingLabel(ev) + '</div>' : ''}
     </div>`;
   }
 
@@ -2555,19 +2555,19 @@ function buildPopupHero(ev) {
       return `<div style="width:280px;aspect-ratio:16/10;background:${getHeroGradient(ev.id, ev.type)};position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;">
         <div class="event-gradient" style="background:${getHeroGradient(ev.id, ev.type)}"></div>
         ${renderLogo(ev.logo, ev.name + ' logo', 'width:55%;max-width:140px;')}
-        <div style="position:absolute;top:8px;right:8px;background:#e04a3a;color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;box-shadow:0 2px 6px rgba(224,74,58,0.4);z-index:3;">${getUpcomingLabel(ev)}</div>
+        ${getUpcomingLabel(ev) ? '<div style="position:absolute;top:8px;right:8px;background:#e04a3a;color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;box-shadow:0 2px 6px rgba(224,74,58,0.4);z-index:3;">' + getUpcomingLabel(ev) + '</div>' : ''}
       </div>`;
     }
     if (ev.photos) {
       return `<div style="width:280px;aspect-ratio:16/10;background:var(--img-placeholder);position:relative;">
         <img src="${ev.photos}" alt="${ev.name}" style="width:100%;height:100%;object-fit:cover;display:block;">
-        <div style="position:absolute;top:8px;right:8px;background:#e04a3a;color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;box-shadow:0 2px 6px rgba(224,74,58,0.4);">${getUpcomingLabel(ev)}</div>
+        ${getUpcomingLabel(ev) ? '<div style="position:absolute;top:8px;right:8px;background:#e04a3a;color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;box-shadow:0 2px 6px rgba(224,74,58,0.4);">' + getUpcomingLabel(ev) + '</div>' : ''}
       </div>`;
     }
     return `<div style="width:280px;aspect-ratio:16/10;background:${getHeroGradient(ev.id, ev.type)};position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;overflow:hidden;">
       <div class="event-gradient" style="background:${getHeroGradient(ev.id, ev.type)}"></div>
       <div style="color:#fffbf3;font-size:15px;font-weight:800;text-align:center;padding:0 16px;line-height:1.25;text-transform:uppercase;letter-spacing:2px;z-index:3;position:relative;font-family:'Anton','Impact',sans-serif;">${ev.name}</div>
-      <div style="position:absolute;top:8px;right:8px;background:#e04a3a;color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;box-shadow:0 2px 6px rgba(224,74,58,0.4);z-index:3;">${getUpcomingLabel(ev)}</div>
+      ${getUpcomingLabel(ev) ? '<div style="position:absolute;top:8px;right:8px;background:#e04a3a;color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;box-shadow:0 2px 6px rgba(224,74,58,0.4);z-index:3;">' + getUpcomingLabel(ev) + '</div>' : ''}
     </div>`;
   }
   // Past events: carousel (existing behavior)
