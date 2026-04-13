@@ -882,6 +882,27 @@ events.forEach(function(ev) {
   if (SLUG_LINKS[ev.id]) ev.link = SLUG_LINKS[ev.id];
 });
 
+// Override event links that are still missing or wrong in CMS
+var SLUG_LINKS = {
+  'sheffield-docfest': '#',
+  'anchorage-international-film-festival': '#',
+  'docsmx': '#',
+  'waves-of-change-arts-festival': '#',
+  'afi-latin-american-film-festival': '#',
+  'ford-foundation-screening-csw': '#',
+  'calgary-justice-film-festival': '#',
+  'milwaukee-dialogues-documentary-festival': '#',
+  'bath-film-festival': '#',
+  'equis-festival-de-cine-feminista-de-ecuador': '#',
+  'coast-film-festival': '#',
+  'cine-otro': '#',
+  'woods-hole-film-festival': '#',
+  'wayland-high-school-screening': '#'
+};
+events.forEach(function(ev) {
+  if (SLUG_LINKS[ev.id]) ev.link = SLUG_LINKS[ev.id];
+});
+
 // Post-process each event's screenings:
 //   1. Fall back screening.link to event.link when empty.
 //   2. Sort chronologically by raw ISO date (dateISO).
@@ -1037,7 +1058,7 @@ const eventAwardNames = {
   'alexandria-film-festival': 'Best Foreign Film',
   'denver-film-festival': 'Audience Award',
   'unaff': 'Youth Vision Award',
-  'ícaro-festival-internacional-de-cine': 'Best Central American Doc',
+  'icaro-festival-internacional-de-cine': 'Best Central American Doc',
   'port-townsend-film-festival': 'Jury Commendation',
   'heartland-international-film-festival': 'Social Impact Award',
   'festival-de-cine-global-de-santo-domingo': 'Best First Documentary',
