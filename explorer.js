@@ -848,6 +848,40 @@ const events = loadEventsFromCMS();
     Original contained 64 events. See git history for reference.  */
 // --- end of CMS data loading ---
 
+// Override wrong event links from CMS (Airtable Link field has scrambled URLs for many events)
+var SLUG_LINKS = {
+  'sheffield-docfest': '#',
+  'calgary-international-film-festival': '#',
+  'anchorage-international-film-festival': '#',
+  'nashville-film-festival': '#',
+  'docsmx': '#',
+  'heartland-international-film-festival': '#',
+  'byron-bay-film-festival': '#',
+  'ashland-independent-film-festival': '#',
+  'frozen-river-film-festival': '#',
+  'waves-of-change-arts-festival': '#',
+  'afi-latin-american-film-festival': '#',
+  'ford-foundation-screening-csw': '#',
+  'mujerdoc': '#',
+  'calgary-justice-film-festival': '#',
+  'milwaukee-dialogues-documentary-festival': '#',
+  'bath-film-festival': '#',
+  'sedona-international-film-festival': '#',
+  'equis-festival-de-cine-feminista-de-ecuador': '#',
+  'coast-film-festival': '#',
+  'port-townsend-film-festival': '#',
+  'crossroads-festival-for-film-and-discourse': '#',
+  'cine-otro': '#',
+  'cinema-on-the-bayou': '#',
+  'woods-hole-film-festival': '#',
+  'charlotte-latino-film-festival': '#',
+  'festival-de-cine-global-de-santo-domingo': '#',
+  'wayland-high-school-screening': '#'
+};
+events.forEach(function(ev) {
+  if (SLUG_LINKS[ev.id]) ev.link = SLUG_LINKS[ev.id];
+});
+
 // Post-process each event's screenings:
 //   1. Fall back screening.link to event.link when empty.
 //   2. Sort chronologically by raw ISO date (dateISO).
@@ -902,6 +936,35 @@ function getEventPress(evId) {
   const ids = (typeof eventPressLinks !== 'undefined' && eventPressLinks[evId]) || [];
   return ids.map(id => pressArticles.find(a => a.id === id)).filter(Boolean);
 }
+// Backfill ev.press flag from hardcoded eventPressLinks so the card shows the press link
+events.forEach(function(ev) {
+  if (!ev.press && eventPressLinks[ev.id]) ev.press = true;
+});
+
+// Award type lookup (slug → primary award category for badge display)
+var SLUG_AWARDS = {
+  'sheffield-docfest': 'jury',
+  'calgary-international-film-festival': 'jury',
+  'nashville-film-festival': 'jury',
+  'denver-film-festival': 'audience',
+  'unaff': 'impact',
+  'icaro-festival-internacional-de-cine': 'jury',
+  'port-townsend-film-festival': 'impact',
+  'heartland-international-film-festival': 'impact',
+  'festival-de-cine-global-de-santo-domingo': 'jury',
+  'byron-bay-film-festival': 'jury',
+  'cinefest-latino-boston': 'audience',
+  'coast-film-festival': 'impact',
+  'woods-hole-film-festival': 'impact',
+  'woodstock-film-festival': 'jury',
+  'anchorage-international-film-festival': 'impact',
+  'alexandria-film-festival': 'jury',
+  'mujerdoc': 'jury'
+};
+// Backfill ev.award from SLUG_AWARDS so the badge renders on the card hero
+events.forEach(function(ev) {
+  if (!ev.award && SLUG_AWARDS[ev.id]) ev.award = SLUG_AWARDS[ev.id];
+});
 
 // Backfill ev.press flag from hardcoded eventPressLinks so the card shows the press link
 events.forEach(function(ev) {
@@ -982,7 +1045,8 @@ const eventAwardNames = {
   'cinefest-latino-boston': 'Audience Award',
   'coast-film-festival': 'Wave Maker Award',
   'woods-hole-film-festival': 'One World Award',
-  'woodstock-film-festival': 'Nominee, Best Documentary'
+  'woodstock-film-festival': 'Nominee, Best Documentary',
+  'mujerdoc': 'Best Feature'
 };
 function awardLabel(award, evId) {
   if (evId && eventAwardNames[evId]) return eventAwardNames[evId];
@@ -1338,7 +1402,7 @@ const premiereMap = {
   'boulder-international-film-festival': 'Boulder Premiere',
   'cine-latino-bergen': 'Bergen Premiere',
   'bath-film-festival': 'Bath Premiere',
-  'ashland-independent-film-festival': 'Regional Premiere',
+  'ashland-independent-film-festival': 'Southern Oregon Premiere',
   'focus-central-america': 'Panamanian Premiere',
 };
 function getPremiere(id) { return premiereMap[id] || null; }
@@ -1414,8 +1478,12 @@ function formatScreeningRowContent(s, ev) {
     return parts.join(' · ') + qa;
   }
   // In-Person (default)
-  const parts = [`<strong>${s.date}</strong>`];
-  if (s.time) parts.push(s.time);
+  var isPast = s.dateISO && new Date(s.dateISO + 'T23:59:59') < new Date();
+  var dateStr = s.date;
+  var yr = s.dateISO ? s.dateISO.substring(0, 4) : '';
+  if (yr && yr !== String(new Date().getFullYear())) dateStr = dateStr + ', ' + yr;
+  const parts = [`<strong>${dateStr}</strong>`];
+  if (!isPast && s.time) parts.push(s.time);
   if (s.venue) parts.push(s.venue);
   return parts.join(' · ') + buildQATag(ev.id, s.venue, s.workshop);
 }
