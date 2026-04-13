@@ -66,8 +66,6 @@
   /* Inactive upcoming/past buttons: subtle color hint */
   .type-toggle-btn[data-filter="upcoming"] {
     color: var(--brand-teal);
-    border: 1px solid rgba(45,130,120,0.25);
-    border-radius: 20px;
   }
   .type-toggle-btn[data-filter="upcoming"]:hover {
     background: rgba(45,130,120,0.08);
@@ -308,6 +306,7 @@
     padding: 4px 10px; border-radius: 6px; letter-spacing: 0.2px;
     box-shadow: 0 2px 6px rgba(224,74,58,0.4);
   }
+  .card-hero-static .hero-upcoming-tag:empty { display: none; }
   /* Gradient layer (behind logo, above card background) */
   .event-gradient {
     position: absolute; inset: 0; z-index: 1;
