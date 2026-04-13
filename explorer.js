@@ -1266,7 +1266,6 @@ function getEventSlideCount(ev) {
 // Bright, fun gradients for events without hero art
 // --- Gradient palette system (category-aware, deterministic) ---
 const gradientPalette = {
-  coral:      ["#C0392B", "#E74C3C"],
   sunset:     ["#E36414", "#F4A261"],
   wine:       ["#6B2D5B", "#C0392B"],
   teal:       ["#0E6655", "#1ABC9C"],
