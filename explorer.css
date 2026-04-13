@@ -393,6 +393,7 @@
     background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--border);
     border-left: 4px solid var(--border);
     overflow: hidden; transition: all 0.2s; cursor: pointer; position: relative;
+    display: flex; flex-direction: column;
   }
   .event-card:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
 
@@ -415,7 +416,7 @@
   .event-card.card-past .card-meta svg { color: #d4940a; }
 
   .event-card.highlighted { border-color: var(--brand-coral); border-left-color: var(--brand-coral); box-shadow: 0 0 0 3px rgba(232,97,77,0.15), var(--shadow-hover); }
-  .card-body { padding: 14px 16px; }
+  .card-body { padding: 14px 16px; display: flex; flex-direction: column; flex: 1; }
   .card-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
   .badge-upcoming { background: var(--upcoming-bg); color: var(--upcoming-text); }
   .badge-past { background: var(--past-bg); color: var(--past-text); }
@@ -429,7 +430,7 @@
   .card-link:hover { opacity: 0.7; }
   .card-link.upcoming-link { color: var(--brand-coral); }
   .card-link.past-link { color: var(--brand-teal); }
-  .card-links { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+  .card-links { display: flex; gap: 12px; align-items: center; margin-top: auto; padding-top: 8px; }
   .card-links .card-link { margin-top: 0; }
   .card-link.press-link { color: var(--mid); font-size: 12px; }
   .card-link.press-link:hover { color: var(--dark); }
