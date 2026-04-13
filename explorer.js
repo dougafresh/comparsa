@@ -666,6 +666,30 @@ function loadEventsFromCMS() {
         });
       }
     }
+    // If no CMS screenings found, fall back to Airtable SLUG_SCREENINGS lookup
+    if (screenings.length === 0) {
+      var evSlug = d.id || el.getAttribute('data-slug') || '';
+      var slugScreenings = typeof SLUG_SCREENINGS !== 'undefined' && SLUG_SCREENINGS[evSlug];
+      if (slugScreenings) {
+        slugScreenings.forEach(function(ss) {
+          screenings.push({
+            type: 'in-person',
+            dateISO: ss.d || '',
+            endDateISO: '',
+            date: ss.d ? formatShortDate(ss.d) : '',
+            time: ss.t || null,
+            venue: ss.v || '',
+            venueNotes: null,
+            link: null,
+            geo: null,
+            geoLabel: null,
+            workshop: ss.ws || undefined,
+            qa: undefined,
+            encore: ss.encore || undefined
+          });
+        });
+      }
+    }
     // Parse multi-image field. Webflow's Multi-Image binding uses a Lightbox
     // element, which at publish time emits a <script class="w-json"> JSON blob
     // listing every image URL. We read from that first, then fall back to any
