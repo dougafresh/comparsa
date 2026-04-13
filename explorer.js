@@ -761,6 +761,42 @@ const carouselStates = {};
 const autoAdvanceTimers = {};
 let lightboxEvId = null, lightboxSlideIdx = 0;
 
+// ===== WEBFLOW / SCROLLSMOOTHER COMPATIBILITY =====
+// Webflow's CMS Collection List embeds a hidden copy of the explorer layout inside
+// .cms-event-data (display:none). A second, visible copy lives in a body-level .w-embed.
+// Because IDs must be unique, remove the hidden duplicates so getElementById hits the
+// visible elements. Also disable ScrollSmoother's fixed wrapper on the explorer page
+// so our layout isn't blocked.
+(function fixWebflowLayout() {
+  // 1. Remove hidden duplicate explorer elements inside the CMS data list.
+  //    The CMS data spans (.cms-event-item, .cms-screening) are still needed for
+  //    loadEventsFromCMS(), but the layout elements (filter-bar, main, etc.) inside
+  //    the list are duplicates that shadow the real visible ones.
+  const cmsList = document.querySelector('.cms-event-data.w-dyn-list');
+  if (cmsList) {
+    cmsList.querySelectorAll('.filter-bar, .main, .explorer-lang-switcher').forEach(el => el.remove());
+    // Also remove any duplicate #map, #screeningGrid, #mainContent inside the list
+    cmsList.querySelectorAll('#map, #screeningGrid, #mainContent').forEach(el => el.remove());
+  }
+
+  // 2. Disable ScrollSmoother's fixed overlay so explorer content is visible.
+  //    ScrollSmoother wraps content in a position:fixed div that blocks everything
+  //    outside it. On the explorer page we don't need smooth scrolling — the explorer
+  //    manages its own scroll areas.
+  const smWrapper = document.querySelector('.ScrollSmoother-wrapper');
+  if (smWrapper) {
+    smWrapper.style.position = 'relative';
+    smWrapper.style.overflow = 'visible';
+    smWrapper.style.inset = 'auto';
+    smWrapper.style.width = 'auto';
+    smWrapper.style.height = 'auto';
+  }
+
+  // 3. Fix body styles that ScrollSmoother may have set (e.g. height: 88px)
+  document.body.style.height = '';
+  document.body.style.overflow = '';
+})();
+
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => { document.documentElement.lang = currentLang; document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === currentLang)); if (currentLang !== 'en') rebuildUI(); initMap(); renderList(); bindEvents(); checkURLParams(); });
 
