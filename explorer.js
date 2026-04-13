@@ -330,12 +330,12 @@ function formatDateRange(startISO, endISO) {
 }
 
 // ===== SLUG-BASED DATA LOOKUP =====
-// Airtable is the source of truth for Event Status and State, but these fields
-// may not yet be synced to Webflow CMS. This lookup fills in the gaps so the
-// explorer can filter by status and display "City, State" for US/Canada events.
+// Airtable is the source of truth for Event Status, State, and Website Dates,
+// but these fields may not yet be synced to Webflow CMS. This lookup fills in
+// the gaps.  Keys: status, state, dates (array of ISO strings), dateDisplay
+// ("discrete" or "range").
 const SLUG_DATA = {
-  // — Event Status overrides (only non-"Announced" / non-"Past" statuses need listing;
-  //   the CMS already marks past events via date comparison) —
+  // — Event Status overrides (non-"Announced" / non-"Past") —
   'womens-international-peace-centre': { status: 'invited' },
   'latino-and-native-american-film-festival': { status: 'invited', state: 'CT' },
   'philedelphia-latino-arts-and-film-festival-phlaff': { status: 'invited', state: 'PA' },
@@ -346,34 +346,34 @@ const SLUG_DATA = {
   'river-film-festival-padova': { status: 'invited' },
   'cinebh-bh-international-film-festival': { status: 'preselected' },
   // — US / Canada State codes —
-  'charlotte-latino-film-festival': { state: 'NC' },
-  'calgary-international-film-festival': { state: 'AB' },
-  'anchorage-international-film-festival': { state: 'AK' },
-  'nashville-film-festival': { state: 'TN' },
-  'alexandria-film-festival': { state: 'VA' },
-  'ashland-independent-film-festival': { state: 'OR' },
-  'frozen-river-film-festival': { state: 'MN' },
-  'waves-of-change-arts-festival': { state: 'MA' },
-  'afi-latin-american-film-festival': { state: 'MD' },
-  'denver-film-festival': { state: 'CO' },
-  'milwaukee-dialogues-documentary-festival': { state: 'WI' },
-  'sedona-international-film-festival': { state: 'AZ' },
+  'charlotte-latino-film-festival': { state: 'NC', dates: ['2025-09-26','2025-10-11'], dateDisplay: 'discrete' },
+  'calgary-international-film-festival': { state: 'AB', dates: ['2025-05-01','2025-05-03'], dateDisplay: 'discrete' },
+  'anchorage-international-film-festival': { state: 'AK', dates: ['2024-06-06','2024-06-15'], dateDisplay: 'discrete' },
+  'nashville-film-festival': { state: 'TN', dates: ['2024-04-10','2024-04-20'], dateDisplay: 'discrete' },
+  'alexandria-film-festival': { state: 'VA', dates: ['2025-09-17','2025-09-20'], dateDisplay: 'discrete' },
+  'ashland-independent-film-festival': { state: 'OR', dates: ['2024-07-01','2024-07-13'], dateDisplay: 'discrete' },
+  'frozen-river-film-festival': { state: 'MN', dates: ['2025-02-19','2025-03-01'], dateDisplay: 'discrete' },
+  'waves-of-change-arts-festival': { state: 'MA', dates: ['2024-09-04','2024-09-09'], dateDisplay: 'discrete' },
+  'afi-latin-american-film-festival': { state: 'MD', dates: ['2024-01-18','2024-01-21'], dateDisplay: 'discrete' },
+  'denver-film-festival': { state: 'CO', dates: ['2025-10-29','2025-11-12'], dateDisplay: 'range' },
+  'milwaukee-dialogues-documentary-festival': { state: 'WI', dates: ['2024-10-31','2024-11-09'], dateDisplay: 'discrete' },
+  'sedona-international-film-festival': { state: 'AZ', dates: ['2025-12-03','2025-12-07'], dateDisplay: 'discrete' },
   'unaff': { state: 'CA' },
-  'woodstock-film-festival': { state: 'NY' },
-  'chicago-latino-film-festival': { state: 'IL' },
-  'port-townsend-film-festival': { state: 'WA' },
-  'heartland-international-film-festival': { state: 'IN' },
-  'calgary-justice-film-festival': { state: 'AB' },
-  'minneapolis-st-paul-international-film-festival': { state: 'MN' },
+  'woodstock-film-festival': { state: 'NY', dates: ['2025-10-15','2025-10-17'], dateDisplay: 'discrete' },
+  'chicago-latino-film-festival': { state: 'IL', dates: ['2026-04-22','2026-04-23'], dateDisplay: 'discrete' },
+  'port-townsend-film-festival': { state: 'WA', dates: ['2024-03-07','2024-03-15'], dateDisplay: 'discrete' },
+  'heartland-international-film-festival': { state: 'IN', dates: ['2024-10-01','2024-10-11'], dateDisplay: 'discrete' },
+  'calgary-justice-film-festival': { state: 'AB', dates: ['2025-03-11','2025-03-25'], dateDisplay: 'discrete' },
+  'minneapolis-st-paul-international-film-festival': { state: 'MN', dates: ['2026-04-16','2026-04-18'], dateDisplay: 'discrete' },
   'wayland-high-school-screening': { state: 'MA' },
-  'julien-dubuque-international-film-festival': { state: 'IA' },
-  'coast-film-festival': { state: 'CA' },
-  'act-human-rights-film-festival': { state: 'CO' },
+  'julien-dubuque-international-film-festival': { state: 'IA', dates: ['2026-04-22','2026-04-24'], dateDisplay: 'discrete' },
+  'coast-film-festival': { state: 'CA', dates: ['2025-06-12','2025-06-17'], dateDisplay: 'discrete' },
+  'act-human-rights-film-festival': { state: 'CO', dates: ['2026-04-09','2026-04-11'], dateDisplay: 'discrete' },
   'cinefest-latino-boston': { state: 'MA' },
-  'cinema-on-the-bayou': { state: 'LA' },
-  'panorama-portland': { state: 'OR' },
-  'boulder-international-film-festival': { state: 'CO' },
-  'woods-hole-film-festival': { state: 'MA' },
+  'cinema-on-the-bayou': { state: 'LA', dates: ['2024-07-31','2024-08-17'], dateDisplay: 'discrete' },
+  'panorama-portland': { state: 'OR', dates: ['2026-04-18'], dateDisplay: 'discrete' },
+  'boulder-international-film-festival': { state: 'CO', dates: ['2025-10-09','2025-10-12'], dateDisplay: 'discrete' },
+  'woods-hole-film-festival': { state: 'MA', dates: ['2023-08-01','2023-08-05'], dateDisplay: 'discrete' },
   'ohsu-psu-screening': { state: 'OR' },
   'encuentro-colectivo-kind-screening': { state: 'DC' },
   'chelsea-public-schools-virtual-learning-academy': { state: 'MA' },
@@ -381,7 +381,80 @@ const SLUG_DATA = {
   'friendship-bridge-screening': { state: 'CO' },
   'beyond-our-borders-retreat': { state: 'CO' },
   'purdue-university-screening': { state: 'IN' },
+  // — Non-US/Canada events with Website Dates —
+  'close-up-edinburgh-docufest': { dates: ['2026-04-05'], dateDisplay: 'discrete' },
+  'sheffield-spotlights-bertha-dochouse': { dates: ['2026-03-13'], dateDisplay: 'discrete' },
+  'docsmx': { dates: ['2025-05-13','2025-05-24'], dateDisplay: 'discrete' },
+  'equis-festival-de-cine-feminista-de-ecuador': { dates: ['2024-10-17','2024-10-26'], dateDisplay: 'discrete' },
+  'sheffield-docfest': { dates: ['2023-11-09','2023-11-18'], dateDisplay: 'discrete' },
+  'ford-foundation-screening-csw': { dates: ['2023-05-24','2023-06-03'], dateDisplay: 'range' },
+  'bath-film-festival': { dates: ['2025-10-01','2025-10-04'], dateDisplay: 'discrete' },
+  'mujerdoc': { dates: ['2025-09-03','2025-09-13'], dateDisplay: 'discrete' },
+  'cine-otro': { dates: ['2024-05-01','2024-05-11'], dateDisplay: 'discrete' },
+  'byron-bay-film-festival': { dates: ['2025-09-24','2025-10-04'], dateDisplay: 'discrete' },
+  'crossroads-festival-for-film-and-discourse': { dates: ['2023-06-08','2023-06-17'], dateDisplay: 'discrete' },
+  'icaro-festival-internacional-de-cine': { dates: ['2025-11-22','2025-11-25'], dateDisplay: 'discrete' },
+  'festival-de-cine-global-de-santo-domingo': { dates: ['2025-05-06','2025-05-10'], dateDisplay: 'discrete' },
+  'womens-voices-now-film-festival': { dates: ['2026-04-03','2026-04-05'], dateDisplay: 'range' },
+  'docnights-showroom-cinema': { dates: ['2026-03-26'], dateDisplay: 'discrete' },
+  'bu-center-for-latin-american-studies': { dates: ['2026-04-02'], dateDisplay: 'discrete' },
 };
+
+// Short display names for countries (used in "City, Country" format)
+const COUNTRY_SHORT = {
+  'United States': null,   // US events use State instead
+  'Canada': null,          // Canada events use Province instead
+  'United Kingdom': 'UK',
+  'Dominican Republic': 'DR',
+  'Costa Rica': 'Costa Rica',
+  'El Salvador': 'El Salvador',
+};
+
+// Format location: "City, State" for US/Canada, "City, Country" for others
+function formatLocation(ev) {
+  if (!ev.city) return '';
+  // US/Canada: show state/province if available
+  if (ev.state && (ev.country === 'United States' || ev.country === 'Canada')) {
+    return ev.city + ', ' + ev.state;
+  }
+  // Other countries: show short country name
+  if (ev.country && ev.country !== 'United States' && ev.country !== 'Canada') {
+    const short = COUNTRY_SHORT[ev.country];
+    const countryLabel = short !== undefined ? short : ev.country;
+    if (countryLabel) return ev.city + ', ' + countryLabel;
+  }
+  return ev.city;
+}
+
+// Format website dates from SLUG_DATA for card display.
+// "discrete" → "Sep 26 & Oct 11" or "Apr 22 & 24" (same month)
+// "range"    → "Oct 29 – Nov 12" or "Apr 3–5" (same month)
+// Single date → "Apr 18"
+function formatWebsiteDates(dates, displayType) {
+  if (!dates || dates.length === 0) return null;
+  const parsed = dates.map(d => new Date(d + 'T00:00:00'));
+  if (parsed.some(d => isNaN(d.getTime()))) return null;
+
+  const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const fmtFull = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+
+  if (parsed.length === 1) return fmt(parsed[0]);
+
+  const sameMonth = parsed[0].getUTCMonth() === parsed[1].getUTCMonth() && parsed[0].getUTCFullYear() === parsed[1].getUTCFullYear();
+
+  if (displayType === 'range') {
+    if (sameMonth) {
+      return MONTHS[parsed[0].getUTCMonth()] + ' ' + parsed[0].getUTCDate() + '\u2013' + parsed[1].getUTCDate();
+    }
+    return fmt(parsed[0]) + ' \u2013 ' + fmt(parsed[1]);
+  }
+
+  // Discrete: show individual dates
+  if (sameMonth) {
+    return MONTHS[parsed[0].getUTCMonth()] + ' ' + parsed.map(d => d.getUTCDate()).join(' & ');
+  }
+  return parsed.map(d => fmt(d)).join(' & ');
+}
 
 function loadEventsFromCMS() {
   const items = document.querySelectorAll('.cms-event-item');
@@ -546,10 +619,19 @@ function loadEventsFromCMS() {
       state: (function() {
         const cmsState = (d.state || '').trim();
         if (cmsState) return cmsState;
-        // Fall back to slug-based lookup from Airtable data
         const slug = d.id || el.getAttribute('data-slug') || '';
         const lookup = SLUG_DATA[slug];
         return (lookup && lookup.state) ? lookup.state : null;
+      })(),
+      websiteDates: (function() {
+        // Check CMS data attributes first (future: data-website-date-1, etc.)
+        // Fall back to slug-based lookup from Airtable
+        const slug = d.id || el.getAttribute('data-slug') || '';
+        const lookup = SLUG_DATA[slug];
+        if (lookup && lookup.dates) {
+          return formatWebsiteDates(lookup.dates, lookup.dateDisplay || 'discrete');
+        }
+        return null;
       })()
     };
   }).filter(ev => {
@@ -941,10 +1023,20 @@ function checkURLParams() { const v = new URLSearchParams(window.location.search
 // ===== CAROUSEL =====
 function getSlideIndex(id) { return carouselStates[id] || 0; }
 
+// Track which carousels the user has manually interacted with —
+// once they click an arrow or dot, auto-advance is permanently disabled
+// for that card (until the list re-renders).
+const userInteractedCarousels = {};
+
 function setSlide(evId, delta, e) {
   if (e) { e.stopPropagation(); e.preventDefault(); }
   const ev = events.find(x => x.id === evId);
   if (!ev || ev.upcoming) return;
+  // If the user triggered this (e is truthy), mark the carousel and stop auto-advance
+  if (e) {
+    userInteractedCarousels[evId] = true;
+    stopAutoAdvance(evId);
+  }
   const totalSlides = getEventSlideCount(ev);
   let idx = (getSlideIndex(evId) + delta + totalSlides) % totalSlides;
   carouselStates[evId] = idx;
@@ -957,6 +1049,8 @@ function setSlide(evId, delta, e) {
 }
 
 function startAutoAdvance(evId) {
+  // Don't restart auto-advance if the user has manually navigated this carousel
+  if (userInteractedCarousels[evId]) return;
   stopAutoAdvance(evId);
   const ev = events.find(x => x.id === evId);
   if (!ev || ev.upcoming) return;
@@ -1374,7 +1468,7 @@ function openLightbox(evId, e) {
     dots.appendChild(dot);
   }
 
-  document.getElementById('lightboxCaption').textContent = `${ev.name} — ${ev.city}`;
+  document.getElementById('lightboxCaption').textContent = `${ev.name} — ${formatLocation(ev)}`;
   document.getElementById('lightbox').classList.add('visible');
   document.body.style.overflow = 'hidden';
 }
@@ -1591,7 +1685,7 @@ function renderSearchDropdown(q) {
         <div class="search-item-icon event-icon">${pinSvg}</div>
         <div class="search-item-text">
           <div class="search-item-title">${ev.name}</div>
-          <div class="search-item-sub">${ev.city} · ${ev.dateRange}</div>
+          <div class="search-item-sub">${formatLocation(ev)} · ${ev.websiteDates || ev.dateRange}</div>
         </div>
       </div>`;
     });
@@ -2300,9 +2394,9 @@ function addMapMarkers() {
     if (ev.screenings.length > 0) {
       popupDateInfo = `<div class="popup-screenings">${ev.screenings.map(s => `<div class="popup-screening-row"><span>${formatScreeningRowContent(s, ev)}</span></div>`).join('')}</div>`;
     } else {
-      popupDateInfo = `<div class="popup-meta">${ev.dateRange}</div>`;
+      popupDateInfo = `<div class="popup-meta">${ev.websiteDates || ev.dateRange}</div>`;
     }
-    const popup = `${buildPopupHero(ev)}<div class="popup-body">${buildPopupAwardBadge(ev.award, ev.id)}<div class="popup-title">${ev.name}</div>${buildPremiereBadge(ev.id)}<div class="popup-meta">${ev.city}${ev.state ? ', ' + ev.state : ''}</div>${popupDateInfo}${ev.link!=='#'?`<a href="${ev.link}" target="_blank" class="popup-link ${linkClass}">${linkLabel} \u2192</a>`:''}${pressLink}</div>`;
+    const popup = `${buildPopupHero(ev)}<div class="popup-body">${buildPopupAwardBadge(ev.award, ev.id)}<div class="popup-title">${ev.name}</div>${buildPremiereBadge(ev.id)}<div class="popup-meta">${formatLocation(ev)}</div>${popupDateInfo}${ev.link!=='#'?`<a href="${ev.link}" target="_blank" class="popup-link ${linkClass}">${linkLabel} \u2192</a>`:''}${pressLink}</div>`;
     const marker = L.marker([ev.lat,ev.lng],{icon:markerIcon(ev.upcoming,false)}).addTo(map);
     marker.bindPopup(popup,{offset:[0,2],maxWidth:280,minWidth:280,className:'custom-popup'});
     marker.on('mouseover',()=>{
@@ -2353,7 +2447,7 @@ function showMapCardPanel(ev, marker) {
       `<div class="card-meta">${calIcon}<span>${formatScreeningRowContent(s, ev)}</span></div>`
     ).join('');
   } else {
-    dateSection = `<div class="card-meta">${calIcon}${ev.dateRange}</div>`;
+    dateSection = `<div class="card-meta">${calIcon}${ev.websiteDates || ev.dateRange}</div>`;
   }
 
   panel.innerHTML = `
@@ -2364,7 +2458,7 @@ function showMapCardPanel(ev, marker) {
       <div class="card-title">${ev.name}</div>
       ${buildPremiereBadge(ev.id)}
       ${dateSection}
-      <div class="card-meta">${pinIcon}${ev.city}${ev.state ? ', ' + ev.state : ''}</div>
+      <div class="card-meta">${pinIcon}${formatLocation(ev)}</div>
       ${buildStreamBadge(ev)}
       ${(ev.link!=='#' || ev.press || ev.flyer) ? `<div class="card-links">${ev.link!=='#'?`<a href="${ev.link}" target="_blank" class="card-link ${linkClass}">${linkLabel}</a>`:''}${buildFlyerLink(ev)}${!ev.upcoming && ev.press?`<a href="#" class="card-link press-link" onclick="openPressPopover('${ev.id}', this); event.stopPropagation(); event.preventDefault();">${t('pressLink')} \u2192</a>`:''}</div>` : ''}
     </div>
@@ -2563,7 +2657,7 @@ function renderList() {
         `<div class="card-meta">${calIcon}<span>${formatScreeningRowContent(s, ev)}</span></div>`
       ).join('');
     } else {
-      dateSection = `<div class="card-meta">${calIcon}${ev.dateRange}${distanceDisplay}</div>`;
+      dateSection = `<div class="card-meta">${calIcon}${ev.websiteDates || ev.dateRange}${distanceDisplay}</div>`;
     }
 
     return `<div class="event-card ${ev.upcoming ? 'card-upcoming' : 'card-past'} ${highlightedId===ev.id?'highlighted':''}" data-id="${ev.id}">
@@ -2573,7 +2667,7 @@ function renderList() {
         <div class="card-title">${ev.name}${buildTypeBadge(ev.type)}</div>
         ${buildPremiereBadge(ev.id)}
         ${dateSection}
-        <div class="card-meta">${pinIcon}${ev.city}${ev.state ? ', ' + ev.state : ''}</div>
+        <div class="card-meta">${pinIcon}${formatLocation(ev)}</div>
         ${buildStreamBadge(ev)}
         ${(ev.link!=='#' || ev.press || ev.flyer || (ev.online && ev.online.link)) ? `<div class="card-links">${ev.link!=='#'?`<a href="${ev.link}" target="_blank" class="${linkClass}" onclick="event.stopPropagation()">${linkLabel}</a>`:''}${buildFlyerLink(ev)}${ev.online && ev.online.link && getStreamStatus(ev.online) && getStreamStatus(ev.online).status==='live' ? `<a href="${ev.online.link}" target="_blank" class="card-link" style="color:#4caf50;" onclick="event.stopPropagation()">${t('watchOnline')} \u2192</a>` : ''}${!ev.upcoming && ev.press?`<a href="#" class="card-link press-link" onclick="openPressPopover('${ev.id}', this); event.stopPropagation(); event.preventDefault();">${t('pressLink')} \u2192</a>`:''}</div>` : ''}
       </div>
