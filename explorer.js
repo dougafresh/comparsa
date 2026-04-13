@@ -296,6 +296,8 @@ const citiesGeocode = {
   'washington dc': { lat: 38.9072, lng: -77.0369 },
 };
 
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
 // ===== DATA (loaded from Webflow CMS) =====
 // Events are read from hidden CMS Collection List elements in the DOM.
 // Each CMS item renders a <div class="cms-event-item"> with data-* attributes.

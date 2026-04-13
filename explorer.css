@@ -31,6 +31,15 @@
   /* FILTER BAR */
   .filter-bar { background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 12px 24px; z-index: 99; position: relative; display: flex; flex-direction: column; gap: 10px; }
   .filter-row-1 { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  /* Move sort dropdown to left of search bar.
+     DOM order: region(0) divider(1) time(2) search(3) geo(4) chip(5) divider(6) sort(7)
+     Desired:   region    divider    time    sort      search  geo    chip                */
+  .filter-row-1 > .sort-dropdown   { order: 3; }
+  .filter-row-1 > .search-wrap     { order: 4; }
+  .filter-row-1 > .proximity-btn   { order: 5; }
+  .filter-row-1 > .location-chip   { order: 6; }
+  /* Hide the second divider that was between geo and sort — no longer needed */
+  .filter-row-1 > .filter-divider:nth-of-type(2) { display: none; }
   .filter-row-2 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .type-filter-label { font-size: 12.5px; font-weight: 600; color: var(--mid); white-space: nowrap; }
   .type-toggle {
@@ -54,19 +63,43 @@
     white-space: nowrap;
   }
   .type-toggle-btn:hover { color: var(--dark); }
+  /* Inactive upcoming/past buttons: subtle color hint */
+  .type-toggle-btn[data-filter="upcoming"] {
+    color: var(--brand-teal);
+    border: 1px solid rgba(45,130,120,0.25);
+    border-radius: 20px;
+  }
+  .type-toggle-btn[data-filter="upcoming"]:hover {
+    background: rgba(45,130,120,0.08);
+    color: var(--brand-teal);
+  }
+  .type-toggle-btn[data-filter="past"] {
+    color: #c48a1a;
+    border: 1px solid rgba(240,168,48,0.3);
+    border-radius: 20px;
+  }
+  .type-toggle-btn[data-filter="past"]:hover {
+    background: rgba(240,168,48,0.08);
+    color: #c48a1a;
+  }
   .type-toggle-btn.active {
     background: var(--brand-coral);
     color: #fff;
     box-shadow: 0 1px 4px rgba(232,97,77,0.2);
+    border-color: transparent;
   }
   /* Time filter: upcoming = teal/green, past = amber/yellow */
   .type-toggle-btn.active[data-filter="upcoming"] {
     background: var(--brand-teal);
+    color: #fff;
     box-shadow: 0 1px 4px rgba(45,130,120,0.3);
+    border-color: transparent;
   }
   .type-toggle-btn.active[data-filter="past"] {
     background: #f0a830;
+    color: #fff;
     box-shadow: 0 1px 4px rgba(240,168,48,0.3);
+    border-color: transparent;
   }
   .filter-group { display: flex; gap: 6px; align-items: center; }
   .filter-divider { width: 1px; height: 24px; background: var(--border); }
