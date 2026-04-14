@@ -848,61 +848,6 @@ const events = loadEventsFromCMS();
     Original contained 64 events. See git history for reference.  */
 // --- end of CMS data loading ---
 
-// Override wrong event links from CMS (Airtable Link field has scrambled URLs for many events)
-var SLUG_LINKS = {
-  'sheffield-docfest': '#',
-  'calgary-international-film-festival': '#',
-  'anchorage-international-film-festival': '#',
-  'nashville-film-festival': '#',
-  'docsmx': '#',
-  'heartland-international-film-festival': '#',
-  'byron-bay-film-festival': '#',
-  'ashland-independent-film-festival': '#',
-  'frozen-river-film-festival': '#',
-  'waves-of-change-arts-festival': '#',
-  'afi-latin-american-film-festival': '#',
-  'ford-foundation-screening-csw': '#',
-  'mujerdoc': '#',
-  'calgary-justice-film-festival': '#',
-  'milwaukee-dialogues-documentary-festival': '#',
-  'bath-film-festival': '#',
-  'sedona-international-film-festival': '#',
-  'equis-festival-de-cine-feminista-de-ecuador': '#',
-  'coast-film-festival': '#',
-  'port-townsend-film-festival': '#',
-  'crossroads-festival-for-film-and-discourse': '#',
-  'cine-otro': '#',
-  'cinema-on-the-bayou': '#',
-  'woods-hole-film-festival': '#',
-  'charlotte-latino-film-festival': '#',
-  'festival-de-cine-global-de-santo-domingo': '#',
-  'wayland-high-school-screening': '#'
-};
-events.forEach(function(ev) {
-  if (SLUG_LINKS[ev.id]) ev.link = SLUG_LINKS[ev.id];
-});
-
-// Override event links that are still missing or wrong in CMS
-var SLUG_LINKS = {
-  'sheffield-docfest': '#',
-  'anchorage-international-film-festival': '#',
-  'docsmx': '#',
-  'waves-of-change-arts-festival': '#',
-  'afi-latin-american-film-festival': '#',
-  'ford-foundation-screening-csw': '#',
-  'calgary-justice-film-festival': '#',
-  'milwaukee-dialogues-documentary-festival': '#',
-  'bath-film-festival': '#',
-  'equis-festival-de-cine-feminista-de-ecuador': '#',
-  'coast-film-festival': '#',
-  'cine-otro': '#',
-  'woods-hole-film-festival': '#',
-  'wayland-high-school-screening': '#'
-};
-events.forEach(function(ev) {
-  if (SLUG_LINKS[ev.id]) ev.link = SLUG_LINKS[ev.id];
-});
-
 // Override event links that are still missing or wrong in CMS
 var SLUG_LINKS = {
   'sheffield-docfest': '#',
@@ -1447,46 +1392,6 @@ const premiereMap = {
   'boulder-international-film-festival': 'Boulder Premiere',
   'ashland-independent-film-festival': 'Southern Oregon Premiere',
   'peronia-adolescente': 'Ciudad Peronia Premiere',
-};
-  'sheffield-docfest': 'World Premiere',
-  'woods-hole-film-festival': 'North American Premiere',
-  'docsmx': 'Latin American Premiere',
-  'equis-festival-de-cine-feminista-de-ecu': 'South American Premiere',
-  'icaro-festival-internacional-de-cine': 'Central American Premiere',
-  'festival-de-cine-global-de-santo-doming': 'Caribbean Premiere',
-  'byron-bay-film-festival': 'Australasian Premiere',
-  'docedge-kolkata': 'Asian Premiere',
-  'mujerdoc': 'Iberian Premiere',
-  'calgary-international-film-festival': 'Canadian Premiere',
-  'crossroads-festival-for-film-and-discour': 'Austrian Premiere',
-  'cine-otro': 'Chilean Premiere',
-  'chicago-latino-film-festival': 'Chicago Premiere',
-  'milwaukee-dialogues-documentary-festiva': 'Midwest Premiere',
-  'nashville-film-festival': 'Southeast Premiere',
-  'port-townsend-film-festival': 'West Coast Premiere',
-  'afi-latin-american-film-festival': 'Mid-Atlantic Premiere',
-  'sedona-international-film-festival': 'Southwest Premiere',
-  'unaff': 'California Premiere',
-  'coast-film-festival': 'Southern California Premiere',
-  'denver-film-festival': 'Colorado Premiere',
-  'anchorage-international-film-festival': 'Alaska Premiere',
-  'heartland-international-film-festival': 'Indiana Premiere',
-  'frozen-river-film-festival': 'Minnesota Premiere',
-  'cinema-on-the-bayou': 'Louisiana Premiere',
-  'julien-dubuque-international-film-festiv': 'Iowa Premiere',
-  'alexandria-film-festival': 'Virginia Premiere',
-  'woodstock-film-festival': 'New York Premiere',
-  'closeup-edinburgh-docufest': 'Scotland Premiere',
-  'charlotte-latino-film-festival': 'North Carolina Premiere',
-  'minneapolis-st-paul-international-film-f': 'Minneapolis Premiere',
-  'panorama-portland': 'Oregon Premiere',
-  'cinefest-latino-boston': 'Boston Premiere',
-  'act-human-rights-film-festival': 'Fort Collins Premiere',
-  'boulder-international-film-festival': 'Boulder Premiere',
-  'cine-latino-bergen': 'Bergen Premiere',
-  'bath-film-festival': 'Bath Premiere',
-  'ashland-independent-film-festival': 'Southern Oregon Premiere',
-  'focus-central-america': 'Panamanian Premiere',
 };
 function getPremiere(id) { return premiereMap[id] || null; }
 
