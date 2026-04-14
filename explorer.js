@@ -752,9 +752,9 @@ function loadEventsFromCMS() {
     if (screenings.length > 0) {
       isUpcoming = screenings.some(s => {
         if (s.type === 'online-on-demand') {
-          return s.endDateISO && new Date(s.endDateISO) >= now;
+          return s.endDateISO && new Date(s.endDateISO + 'T23:59:59') >= now;
         }
-        return s.dateISO && new Date(s.dateISO) >= now;
+        return s.dateISO && new Date(s.dateISO + 'T23:59:59') >= now;
       });
     }
     if (!isUpcoming) {
@@ -876,6 +876,27 @@ var SLUG_LINKS = {
   'woods-hole-film-festival': '#',
   'charlotte-latino-film-festival': '#',
   'festival-de-cine-global-de-santo-domingo': '#',
+  'wayland-high-school-screening': '#'
+};
+events.forEach(function(ev) {
+  if (SLUG_LINKS[ev.id]) ev.link = SLUG_LINKS[ev.id];
+});
+
+// Override event links that are still missing or wrong in CMS
+var SLUG_LINKS = {
+  'sheffield-docfest': '#',
+  'anchorage-international-film-festival': '#',
+  'docsmx': '#',
+  'waves-of-change-arts-festival': '#',
+  'afi-latin-american-film-festival': '#',
+  'ford-foundation-screening-csw': '#',
+  'calgary-justice-film-festival': '#',
+  'milwaukee-dialogues-documentary-festival': '#',
+  'bath-film-festival': '#',
+  'equis-festival-de-cine-feminista-de-ecuador': '#',
+  'coast-film-festival': '#',
+  'cine-otro': '#',
+  'woods-hole-film-festival': '#',
   'wayland-high-school-screening': '#'
 };
 events.forEach(function(ev) {
@@ -1107,8 +1128,8 @@ function parseDate(str) {
 function getStreamStatus(online) {
   if (!online) return null;
   const today = new Date(); today.setHours(0,0,0,0);
-  const start = new Date(online.start); start.setHours(0,0,0,0);
-  const end = new Date(online.end); end.setHours(23,59,59,999);
+  const start = new Date(online.start + 'T00:00:00'); start.setHours(0,0,0,0);
+  const end = new Date(online.end + 'T00:00:00'); end.setHours(23,59,59,999);
   const diffStart = Math.round((start - today) / (1000*60*60*24));
   if (today > end) return null; // Don't show past streaming periods
   if (today >= start && today <= end) return { status: 'live', label: t('streamingNow'), cssClass: 'stream-live' };
@@ -1157,8 +1178,8 @@ function getUpcomingLabel(ev) {
   // Check streaming window status (for events with online on-demand periods)
   let streamLabel = null;
   if (ev.online) {
-    const streamStart = new Date(ev.online.start); streamStart.setHours(0,0,0,0);
-    const streamEnd = new Date(ev.online.end); streamEnd.setHours(23,59,59,999);
+    const streamStart = new Date(ev.online.start + 'T00:00:00'); streamStart.setHours(0,0,0,0);
+    const streamEnd = new Date(ev.online.end + 'T00:00:00'); streamEnd.setHours(23,59,59,999);
     if (today >= streamStart && today <= streamEnd) {
       // Currently streaming — show "Streamable until [date]"
       const endStr = streamEnd.toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' });
@@ -1186,7 +1207,7 @@ function getUpcomingLabel(ev) {
   for (const s of ev.screenings) {
     if (s.type === 'online-on-demand') continue; // skip on-demand; handled above
     let d = null;
-    if (s.dateISO) { d = new Date(s.dateISO); d.setHours(0,0,0,0); }
+    if (s.dateISO) { d = new Date(s.dateISO + 'T00:00:00'); d.setHours(0,0,0,0); }
     else if (s.date) { d = parseDate(s.date); }
     if (d && !isNaN(d.getTime()) && d >= today) { screenDate = d; break; }
   }
@@ -1356,28 +1377,19 @@ function getEventSlideCount(ev) {
 // Bright, fun gradients for events without hero art
 // --- Gradient palette system (category-aware, deterministic) ---
 const gradientPalette = {
-  sunset:     ["#E36414", "#F4A261"],
-  wine:       ["#6B2D5B", "#C0392B"],
-  teal:       ["#0E6655", "#1ABC9C"],
-  ocean:      ["#1A5276", "#2E86C1"],
-  plum:       ["#5B2C6F", "#A569BD"],
-  forest:     ["#1E8449", "#52BE80"],
-  terracotta: ["#A04000", "#DC7633"],
-  slate:      ["#2C3E50", "#5D6D7E"],
-  berry:      ["#78281F", "#D4556B"],
-  olive:      ["#4A6C2F", "#82B74B"],
-  copper:     ["#B45309", "#D4A04A"],
-  indigo:     ["#283593", "#5C6BC0"],
-  sage:       ["#3D5A45", "#7DAF82"],
-  rust:       ["#8B3A2A", "#E07850"],
-  marine:     ["#1B4F72", "#48A3C0"]
+  ocean:   ["#1A5276", "#2E86C1"],
+  plum:    ["#5B2C6F", "#A569BD"],
+  teal:    ["#0E6655", "#1ABC9C"],
+  sunset:  ["#D35400", "#F39C12"],
+  rose:    ["#8E244D", "#E74C8B"],
+  indigo:  ["#1A237E", "#5C6BC0"]
 };
 const categoryGradientMap = {
-  festival:    ["ocean", "plum", "indigo", "wine", "slate", "marine", "berry"],
-  community:   ["teal", "sage", "olive", "forest", "copper", "terracotta", "sunset", "rust"],
-  educational: ["ocean", "indigo", "marine", "slate", "plum", "wine", "berry", "teal"],
-  special:     ["sunset", "teal", "forest", "terracotta", "olive", "copper", "sage", "rust"],
-  default:     ["teal", "plum", "forest", "ocean", "sunset", "terracotta", "olive", "indigo", "wine", "copper", "sage", "rust", "marine", "berry", "slate"]
+  festival:    ["ocean", "plum", "indigo", "rose", "teal", "sunset"],
+  community:   ["teal", "sunset", "ocean", "plum", "rose", "indigo"],
+  educational: ["ocean", "indigo", "plum", "teal", "rose", "sunset"],
+  special:     ["sunset", "teal", "rose", "plum", "ocean", "indigo"],
+  default:     ["ocean", "plum", "teal", "sunset", "rose", "indigo"]
 };
 function hashString(str) {
   let hash = 0;
@@ -1575,7 +1587,7 @@ function buildFlyerLink(ev) {
   const today = new Date(); today.setHours(0,0,0,0);
   const hasFutureScreening = ev.screenings.some(s => {
     let d = null;
-    if (s.dateISO) { d = new Date(s.dateISO); d.setHours(0,0,0,0); }
+    if (s.dateISO) { d = new Date(s.dateISO + 'T00:00:00'); d.setHours(0,0,0,0); }
     else if (s.date) { d = parseDate(s.date); }
     return d && !isNaN(d.getTime()) && d >= today;
   });
@@ -1859,6 +1871,24 @@ document.addEventListener('click', e => { if (e.target.id === 'lightbox') closeL
 })();
 
 // ===== PRESS POPOVER =====
+// Ensure popover container elements exist (they live in the test HTML but may
+// be missing from the Webflow page, so we create them dynamically).
+(function ensurePressPopoverDOM() {
+  if (!document.getElementById('pressBackdrop')) {
+    var bd = document.createElement('div');
+    bd.id = 'pressBackdrop';
+    bd.className = 'press-popover-backdrop';
+    bd.onclick = function() { closePressPopover(); };
+    document.body.appendChild(bd);
+  }
+  if (!document.getElementById('pressPopover')) {
+    var po = document.createElement('div');
+    po.id = 'pressPopover';
+    po.className = 'press-popover';
+    document.body.appendChild(po);
+  }
+})();
+
 function openPressPopover(evId, anchorEl) {
   const articles = getEventPress(evId);
   const popover = document.getElementById('pressPopover');
@@ -2166,7 +2196,7 @@ document.addEventListener('keydown', e => {
 // ===== MAP =====
 function initMap() {
   // Default bounds: Americas-focused, tight enough that dots are prominent
-  map = L.map('map', { center: [25, -65], zoom: 2.5, zoomSnap: 0.5, zoomDelta: 1, zoomControl: false });
+  map = L.map('map', { center: [30, -20], zoom: 2.5, zoomSnap: 0.5, zoomDelta: 1, zoomControl: false });
   L.control.zoom({ position: 'topright' }).addTo(map);
 
   // Reset map button
@@ -2180,7 +2210,7 @@ function initMap() {
       L.DomEvent.disableClickPropagation(btn);
       btn.addEventListener('click', () => {
         closeMapCardPanel();
-        map.flyTo([25, -65], 2.5, { duration: 1.0 });
+        map.flyTo([30, -20], 2.5, { duration: 1.0 });
       });
       return btn;
     }
@@ -3097,7 +3127,7 @@ function setView(view) {
   currentView=view; showingCachedResults=false; document.getElementById('mainContent').className=`main view-${view}`;
   document.querySelectorAll('.view-toggle').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
   closeMapCardPanel();
-  setTimeout(()=>{ if(map) { map.invalidateSize(); if(view==='map') { map.setView([25, -65], 3, {animate:false}); addMapMarkers(); } } if(view==='hybrid' || view==='map') filterByMapBounds(); else { filteredEvents=events.filter(matchesFilters); renderList(); } },350);
+  setTimeout(()=>{ if(map) { map.invalidateSize(); if(view==='map') { map.setView([30, -20], 3, {animate:false}); addMapMarkers(); } } if(view==='hybrid' || view==='map') filterByMapBounds(); else { filteredEvents=events.filter(matchesFilters); renderList(); } },350);
   setTimeout(()=>{ if(map) map.invalidateSize(); },700);
   const u=new URL(window.location); u.searchParams.set('view',currentView); window.history.replaceState({},'',u);
 }
