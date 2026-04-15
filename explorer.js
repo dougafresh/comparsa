@@ -2578,6 +2578,7 @@ function showMapCardPanel(ev, marker) {
     </div>
   `;
   panel.classList.add('visible');
+  document.getElementById('map')?.classList.add('map-card-open');
 
   // Position near the clicked marker (Airbnb-style)
   if (marker && map) {
@@ -2636,6 +2637,7 @@ function hideLabelsUnderPanel(panel, mapRect) {
 
 function closeMapCardPanel() {
   document.getElementById('mapCardPanel').classList.remove('visible');
+  document.getElementById('map')?.classList.remove('map-card-open');
   // Restore hidden labels
   popupHiddenLabels.forEach(el => el.classList.remove('popup-hidden'));
   popupHiddenLabels = [];
