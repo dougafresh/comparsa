@@ -172,6 +172,38 @@ function t(key, params) {
 
 function dateLocale() { return currentLang === 'es' ? 'es-ES' : 'en-US'; }
 
+// Format a 24h time string for the active language.
+// Accepts: "15:00", "15:00 h", "3:00 PM" (already AM/PM), or null.
+// Returns: EN → "3:00 PM"  |  ES → "15:00 h"  |  null → null
+function formatTime(raw) {
+  if (!raw) return null;
+  var s = raw.trim();
+  // Already in AM/PM format? Convert to 24h first, then re-format.
+  var ampm = s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (ampm) {
+    var hh = parseInt(ampm[1], 10);
+    var mm = ampm[2];
+    var period = ampm[3].toUpperCase();
+    if (period === 'PM' && hh < 12) hh += 12;
+    if (period === 'AM' && hh === 12) hh = 0;
+    s = (hh < 10 ? '0' : '') + hh + ':' + mm;
+  }
+  // Strip trailing " h" or "h" if present
+  s = s.replace(/\s*h$/i, '').trim();
+  // Now s should be "HH:MM" 24h format
+  var parts = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (!parts) return raw; // unrecognized — return as-is
+  var h24 = parseInt(parts[1], 10);
+  var min = parts[2];
+  if (currentLang === 'es') {
+    return (h24 < 10 ? '0' : '') + h24 + ':' + min + ' h';
+  }
+  // English: convert to 12h AM/PM
+  var suffix = h24 >= 12 ? 'PM' : 'AM';
+  var h12 = h24 % 12 || 12;
+  return h12 + ':' + min + ' ' + suffix;
+}
+
 function setLanguage(lang) {
   if (!translations[lang]) return;
   currentLang = lang;
@@ -402,149 +434,9 @@ const SLUG_DATA = {
   'bu-center-for-latin-american-studies': { dates: ['2026-04-02'], dateDisplay: 'discrete' },
 };
 
-// ===== SCREENING DATA LOOKUP =====
-// Individual screening dates/times/venues from Airtable Screenings table.
-// Used when the Webflow CMS nested Screenings collection is empty for an event.
-// Keys: d (ISO date), t (time string), v (venue), encore (bool), ws (workshop bool)
-var SLUG_SCREENINGS = {
-  'act-human-rights-film-festival': [{"d":"2026-04-09","t":"6:30 PM","v":"Behavioral Sciences Building"}],
-  'afi-latin-american-film-festival': [{"d":"2025-09-21","t":"3:30 PM","v":"AFI Silver Theatre and Cultural Center"}],
-  'ajubi': [{"d":"2026-04-10","t":"6:00 PM","v":"TBD \u2014 Moraz\u00e1n, El Salvador"}],
-  'alexandria-film-festival': [{"d":"2025-11-08","t":"4:30 PM","v":"Virginia Tech"}],
-  'anchorage-international-film-festival': [{"d":"2025-12-12","t":"6:00 PM","v":"Alaska Experience Theater"},{"d":"2025-12-14","v":"Alaska Experience Theater","encore":true}],
-  'ashland-independent-film-festival': [{"d":"2026-04-23","t":"1:20 PM","v":"Varsity Theater (3)"},{"d":"2026-04-24","t":"7:00 PM","v":"Big Dog Studio"},{"d":"2026-04-26","t":"1:10 PM","v":"Varsity Theater (4)"}],
-  'aswan-international-women-film-festival': [{"d":"2026-04-24","t":"5:00 PM","v":"Venue TBD"}],
-  'bath-film-festival': [{"d":"2025-10-26","t":"6:05 PM","v":"Everyman Bath"},{"d":"2025-10-26","t":"8:20 PM","v":"Everyman Bath"}],
-  'beyond-our-borders-retreat': [{"d":"2026-05-14","t":"7:00 PM","v":"TBD - US"}],
-  'boulder-international-film-festival': [{"d":"2026-04-10","t":"2:45 PM","v":"First Congregational Church UCC Boulder"}],
-  'bu-center-for-latin-american-studies': [{"d":"2026-04-03","t":"11:15 AM","v":"745 Commonwealth Avenue"}],
-  'byron-bay-film-festival': [{"d":"2025-10-18","t":"3:00 PM","v":"Byron Bay"},{"d":"2025-10-25","t":"7:00 PM","v":"Brunswick Picture House"}],
-  'calgary-international-film-festival': [{"d":"2025-09-20","t":"11:30 AM","v":"Contemporary Calgary"},{"d":"2025-09-28","t":"4:30 PM","v":"Chinook 13"}],
-  'calgary-justice-film-festival': [{"d":"2025-11-07","t":"6:00 PM","v":"The Confluence Historic Site & Parkland"}],
-  'charlotte-latino-film-festival': [{"d":"2026-04-26","t":"4:00 PM","v":"The Independent Picture House"}],
-  'chelsea-public-schools-virtual-learning-academy': [{"d":"2026-06-15","t":"10:00 AM","v":"Chelsea Public Schools, Chelsea MA","ws":true}],
-  'chicago-latino-film-festival': [{"d":"2026-04-23","t":"5:30 PM","v":"Landmark\u2019s Century Centre Cinema"},{"d":"2026-04-24","t":"5:15 PM","v":"Landmark\u2019s Century Centre Cinema"}],
-  'cine-otro': [{"d":"2026-01-13","t":"5:40 PM","v":"Universidad de Valpara\u00edso"}],
-  'cinefest-latino-boston': [{"d":"2025-09-24","t":"7:00 PM","v":"Coolidge Corner Theatre"}],
-  'cinema-on-the-bayou': [{"d":"2026-01-22","t":"7:30 PM","v":"Cit\u00e9 des Arts"}],
-  'close-up-edinburgh-docufest': [{"d":"2026-04-25","t":"6:00 PM","v":"Summerhall Arts"}],
-  'coast-film-festival': [{"d":"2025-11-02","t":"2:00 PM","v":"Laguna Beach Cultural Arts Center"},{"d":"2025-11-04","t":"2:00 PM","v":"Laguna Beach Cultural Arts Center"}],
-  'crossroads-festival-for-film-and-discourse': [{"d":"2025-11-09","t":"11:00 AM","v":"Laguna Beach Cultural Arts Center"}],
-  'denver-film-festival': [{"d":"2025-11-02","t":"6:00 PM","v":"MCA Denver at the Holiday Theater"},{"d":"2025-11-03","t":"3:00 PM","v":"MCA Denver at the Holiday Theater"}],
-  'docnights-showroom-cinema': [{"d":"2026-03-30","t":"6:00 PM","v":"Showroom Cinema"}],
-  'docsmx': [{"d":"2025-10-28","t":"7:30 PM","v":"Cineteca Nacional de M\u00e9xico"},{"d":"2025-10-29","t":"4:00 PM","v":"Las Islas"}],
-  'ecovillage-cambium-screening': [{"d":"2026-04-10","t":"7:00 PM","v":"Ecovillage Cambium, Austria"}],
-  'el-directorio': [{"d":"2026-04-09","t":"6:00 PM","v":"TBD \u2014 Antigua, Guatemala"}],
-  'ellas-al-frente': [{"d":"2026-02-20","t":"6:00 PM","v":"TBD - Guatemala City","ws":true}],
-  'encuentro-colectivo-kind-screening': [{"v":"TBD - US"}],
-  'equis-festival-de-cine-feminista-de-ecuador': [{"d":"2025-11-15","t":"5:30 PM","v":"National Cinematheque \u201cUlises Estrella\u201d"},{"d":"2025-11-20","t":"5:00 PM","v":"Cinemateca"}],
-  'festival-de-cine-global-de-santo-domingo': [{"d":"2026-01-30","t":"8:35 PM","v":"Galer\u00eda 360 Sala 10-94"}],
-  'focus-central-america': [{"d":"2026-03-25","v":"Panama"}],
-  'ford-foundation-screening-csw': [{"d":"2026-03-18","t":"4:00 PM","v":"Ford Foundation Center for Social Justice"}],
-  'friendship-bridge-screening': [{"d":"2026-05-30","t":"7:00 PM","v":"TBD - US"}],
-  'frozen-river-film-festival': [{"d":"2026-02-06","t":"7:00 PM","v":"The ARC - Home of the Historic Masonic Theatre"}],
-  'fundacion-ixcanul-cine-para-decidir': [{"v":"TBD - Guatemala"}],
-  'heartland-international-film-festival': [{"d":"2025-10-10","t":"3:45 PM","v":"Alamo Draft House and Cinema"},{"d":"2025-10-12","t":"8:00 PM","v":"Living Room Theaters"}],
-  'icaro-festival-internacional-de-cine': [{"d":"2025-11-23","t":"4:00 PM","v":"Teatro de Bellas Artes"},{"d":"2025-11-26","t":"7:00 PM","v":"Alianza Francesa, z.13"}],
-  'julien-dubuque-international-film-festival': [{"d":"2026-04-20","t":"2:15 PM","v":"The Grand Opera House"},{"d":"2026-04-21","t":"3:00 PM","v":"Five Flags Majestic"}],
-  'maestros-ciudad-peronia': [{"d":"2026-03-24","t":"10:30 AM","v":"Auditorio INED La Selva, Ciudad Peronia","ws":true},{"d":"2026-03-24","t":"4:00 PM","v":"Auditorio INED La Selva, Ciudad Peronia","ws":true}],
-  'memoria-verdad-justicia': [{"d":"2025-11-28","t":"5:30 PM","v":"Asociaci\u00f3n Plantando Semillas"}],
-  'mesita-screening': [{"v":"TBD - US"}],
-  'milwaukee-dialogues-documentary-festival': [{"d":"2025-09-20","t":"7:45 PM","v":"Oriental Theatre MKE"}],
-  'minneapolis-st-paul-international-film-festival': [{"d":"2026-04-17","t":"2:15 PM","v":"Main Cinema 2"},{"d":"2026-04-19","t":"11:20 AM","v":"Main Cinema 2"}],
-  'mojoca': [{"d":"2026-04-20","t":"10:00 AM","v":"MOJOCA, Guatemala City"}],
-  'mujerdoc': [{"d":"2026-03-12","t":"6:00 PM","v":"Centro Cultural Palacio de la Audiencia"}],
-  'nashville-film-festival': [{"d":"2025-09-20","t":"5:30 PM","v":"Regal Green Hills"}],
-  'oacnudh': [{"v":"TBD \u2014 Guatemala City"}],
-  'ohsu-psu-screening': [{"d":"2026-04-24","t":"6:00 PM","v":"OHSU/PSU - Portland, OR"}],
-  'panorama-portland': [{"d":"2026-04-19","t":"12:00 PM","v":"McMenamins Kennedy School"}],
-  'peace-justice-conference': [{"d":"2026-05-09","t":"7:00 PM","v":"Peace Justice Conference, Austria"}],
-  'peronia-adolescente': [{"d":"2025-12-05","t":"5:30 PM","v":"Peronia Adolescente"}],
-  'port-townsend-film-festival': [{"d":"2025-09-20","t":"4:00 PM","v":"Key City Public Theatre"},{"d":"2025-09-21","t":"7:00 PM","v":"Starlight Room"}],
-  'puerta-abierta': [{"d":"2026-04-30","t":"6:00 PM","v":"Puerta Abierta, Santiago Atitl\u00e1n"}],
-  'purdue-university-screening': [{"d":"2026-09-01","v":"Purdue University, West Lafayette IN"}],
-  'sedona-international-film-festival': [{"d":"2026-02-22","t":"1:00 PM","v":"Sedona Film Festival Theatres"},{"d":"2026-02-24","t":"4:10 PM","v":"Sedona Film Festival Theatres"}],
-  'sheffield-docfest': [{"d":"2025-06-21","t":"8:45 PM","v":"Curzon Sheffield"},{"d":"2025-06-22","t":"12:45 PM","v":"The Light-Sheffield"},{"d":"2025-06-23","t":"3:15 PM","v":"Showroom Cinema","encore":true}],
-  'sheffield-spotlights-bertha-dochouse': [{"d":"2026-03-31","t":"6:20 PM","v":"Bertha DocHouse"}],
-  'unaff': [{"d":"2025-10-26","t":"1:30 PM","v":"Mitchell Park Community Center"}],
-  'waves-of-change-arts-festival': [{"d":"2025-10-09","t":"4:00 PM","v":"Tilden Main Theater"}],
-  'wayland-high-school-screening': [{"d":"2026-01-28","t":"9:00 AM","v":"Wayland High School"}],
-  'womens-international-peace-centre': [{"v":"Women\u2019s Intl Peace Centre, Kampala"}],
-  'woods-hole-film-festival': [{"d":"2025-07-30","t":"5:30 PM","v":"Clapp Auditorium"}],
-  'woodstock-film-festival': [{"d":"2025-10-16","t":"7:45 PM","v":"Upstate Films (Kingston): Upstate Midtown"},{"d":"2025-10-18","t":"6:30 PM","v":"Upstate Films (Saugerties): Orpheum Theatre"}],
-};
-
-// ===== SCREENING DATA LOOKUP =====
-// Individual screening dates/times/venues from Airtable Screenings table.
-// Used when the Webflow CMS nested Screenings collection is empty for an event.
-// Keys: d (ISO date), t (time string), v (venue), encore (bool), ws (workshop bool)
-var SLUG_SCREENINGS = {
-  'act-human-rights-film-festival': [{"d":"2026-04-09","t":"6:30 PM","v":"Behavioral Sciences Building"}],
-  'afi-latin-american-film-festival': [{"d":"2025-09-21","t":"3:30 PM","v":"AFI Silver Theatre and Cultural Center"}],
-  'ajubi': [{"d":"2026-04-10","t":"6:00 PM","v":"TBD \u2014 Moraz\u00e1n, El Salvador"}],
-  'alexandria-film-festival': [{"d":"2025-11-08","t":"4:30 PM","v":"Virginia Tech"}],
-  'anchorage-international-film-festival': [{"d":"2025-12-12","t":"6:00 PM","v":"Alaska Experience Theater"},{"d":"2025-12-14","v":"Alaska Experience Theater","encore":true}],
-  'ashland-independent-film-festival': [{"d":"2026-04-23","t":"1:20 PM","v":"Varsity Theater (3)"},{"d":"2026-04-24","t":"7:00 PM","v":"Big Dog Studio"},{"d":"2026-04-26","t":"1:10 PM","v":"Varsity Theater (4)"}],
-  'aswan-international-women-film-festival': [{"d":"2026-04-24","t":"5:00 PM","v":"Venue TBD"}],
-  'bath-film-festival': [{"d":"2025-10-26","t":"6:05 PM","v":"Everyman Bath"},{"d":"2025-10-26","t":"8:20 PM","v":"Everyman Bath"}],
-  'beyond-our-borders-retreat': [{"d":"2026-05-14","t":"7:00 PM","v":"TBD - US"}],
-  'boulder-international-film-festival': [{"d":"2026-04-10","t":"2:45 PM","v":"First Congregational Church UCC Boulder"}],
-  'bu-center-for-latin-american-studies': [{"d":"2026-04-03","t":"11:15 AM","v":"745 Commonwealth Avenue"}],
-  'byron-bay-film-festival': [{"d":"2025-10-18","t":"3:00 PM","v":"Byron Bay"},{"d":"2025-10-25","t":"7:00 PM","v":"Brunswick Picture House"}],
-  'calgary-international-film-festival': [{"d":"2025-09-20","t":"11:30 AM","v":"Contemporary Calgary"},{"d":"2025-09-28","t":"4:30 PM","v":"Chinook 13"}],
-  'calgary-justice-film-festival': [{"d":"2025-11-07","t":"6:00 PM","v":"The Confluence Historic Site & Parkland"}],
-  'charlotte-latino-film-festival': [{"d":"2026-04-26","t":"4:00 PM","v":"The Independent Picture House"}],
-  'chelsea-public-schools-virtual-learning-academy': [{"d":"2026-06-15","t":"10:00 AM","v":"Chelsea Public Schools, Chelsea MA","ws":true}],
-  'chicago-latino-film-festival': [{"d":"2026-04-23","t":"5:30 PM","v":"Landmark\u2019s Century Centre Cinema"},{"d":"2026-04-24","t":"5:15 PM","v":"Landmark\u2019s Century Centre Cinema"}],
-  'cine-otro': [{"d":"2026-01-13","t":"5:40 PM","v":"Universidad de Valpara\u00edso"}],
-  'cinefest-latino-boston': [{"d":"2025-09-24","t":"7:00 PM","v":"Coolidge Corner Theatre"}],
-  'cinema-on-the-bayou': [{"d":"2026-01-22","t":"7:30 PM","v":"Cit\u00e9 des Arts"}],
-  'close-up-edinburgh-docufest': [{"d":"2026-04-25","t":"6:00 PM","v":"Summerhall Arts"}],
-  'coast-film-festival': [{"d":"2025-11-02","t":"2:00 PM","v":"Laguna Beach Cultural Arts Center"},{"d":"2025-11-04","t":"2:00 PM","v":"Laguna Beach Cultural Arts Center"}],
-  'crossroads-festival-for-film-and-discourse': [{"d":"2025-11-09","t":"11:00 AM","v":"Laguna Beach Cultural Arts Center"}],
-  'denver-film-festival': [{"d":"2025-11-02","t":"6:00 PM","v":"MCA Denver at the Holiday Theater"},{"d":"2025-11-03","t":"3:00 PM","v":"MCA Denver at the Holiday Theater"}],
-  'docnights-showroom-cinema': [{"d":"2026-03-30","t":"6:00 PM","v":"Showroom Cinema"}],
-  'docsmx': [{"d":"2025-10-28","t":"7:30 PM","v":"Cineteca Nacional de M\u00e9xico"},{"d":"2025-10-29","t":"4:00 PM","v":"Las Islas"}],
-  'ecovillage-cambium-screening': [{"d":"2026-04-10","t":"7:00 PM","v":"Ecovillage Cambium, Austria"}],
-  'el-directorio': [{"d":"2026-04-09","t":"6:00 PM","v":"TBD \u2014 Antigua, Guatemala"}],
-  'ellas-al-frente': [{"d":"2026-02-20","t":"6:00 PM","v":"TBD - Guatemala City","ws":true}],
-  'encuentro-colectivo-kind-screening': [{"v":"TBD - US"}],
-  'equis-festival-de-cine-feminista-de-ecuador': [{"d":"2025-11-15","t":"5:30 PM","v":"National Cinematheque \u201cUlises Estrella\u201d"},{"d":"2025-11-20","t":"5:00 PM","v":"Cinemateca"}],
-  'festival-de-cine-global-de-santo-domingo': [{"d":"2026-01-30","t":"8:35 PM","v":"Galer\u00eda 360 Sala 10-94"}],
-  'focus-central-america': [{"d":"2026-03-25","v":"Panama"}],
-  'ford-foundation-screening-csw': [{"d":"2026-03-18","t":"4:00 PM","v":"Ford Foundation Center for Social Justice"}],
-  'friendship-bridge-screening': [{"d":"2026-05-30","t":"7:00 PM","v":"TBD - US"}],
-  'frozen-river-film-festival': [{"d":"2026-02-06","t":"7:00 PM","v":"The ARC - Home of the Historic Masonic Theatre"}],
-  'fundacion-ixcanul-cine-para-decidir': [{"v":"TBD - Guatemala"}],
-  'heartland-international-film-festival': [{"d":"2025-10-10","t":"3:45 PM","v":"Alamo Draft House and Cinema"},{"d":"2025-10-12","t":"8:00 PM","v":"Living Room Theaters"}],
-  'icaro-festival-internacional-de-cine': [{"d":"2025-11-23","t":"4:00 PM","v":"Teatro de Bellas Artes"},{"d":"2025-11-26","t":"7:00 PM","v":"Alianza Francesa, z.13"}],
-  'julien-dubuque-international-film-festival': [{"d":"2026-04-20","t":"2:15 PM","v":"The Grand Opera House"},{"d":"2026-04-21","t":"3:00 PM","v":"Five Flags Majestic"}],
-  'maestros-ciudad-peronia': [{"d":"2026-03-24","t":"10:30 AM","v":"Auditorio INED La Selva, Ciudad Peronia","ws":true},{"d":"2026-03-24","t":"4:00 PM","v":"Auditorio INED La Selva, Ciudad Peronia","ws":true}],
-  'memoria-verdad-justicia': [{"d":"2025-11-28","t":"5:30 PM","v":"Asociaci\u00f3n Plantando Semillas"}],
-  'mesita-screening': [{"v":"TBD - US"}],
-  'milwaukee-dialogues-documentary-festival': [{"d":"2025-09-20","t":"7:45 PM","v":"Oriental Theatre MKE"}],
-  'minneapolis-st-paul-international-film-festival': [{"d":"2026-04-17","t":"2:15 PM","v":"Main Cinema 2"},{"d":"2026-04-19","t":"11:20 AM","v":"Main Cinema 2"}],
-  'mojoca': [{"d":"2026-04-20","t":"10:00 AM","v":"MOJOCA, Guatemala City"}],
-  'mujerdoc': [{"d":"2026-03-12","t":"6:00 PM","v":"Centro Cultural Palacio de la Audiencia"}],
-  'nashville-film-festival': [{"d":"2025-09-20","t":"5:30 PM","v":"Regal Green Hills"}],
-  'oacnudh': [{"v":"TBD \u2014 Guatemala City"}],
-  'ohsu-psu-screening': [{"d":"2026-04-24","t":"6:00 PM","v":"OHSU/PSU - Portland, OR"}],
-  'panorama-portland': [{"d":"2026-04-19","t":"12:00 PM","v":"McMenamins Kennedy School"}],
-  'peace-justice-conference': [{"d":"2026-05-09","t":"7:00 PM","v":"Peace Justice Conference, Austria"}],
-  'peronia-adolescente': [{"d":"2025-12-05","t":"5:30 PM","v":"Peronia Adolescente"}],
-  'port-townsend-film-festival': [{"d":"2025-09-20","t":"4:00 PM","v":"Key City Public Theatre"},{"d":"2025-09-21","t":"7:00 PM","v":"Starlight Room"}],
-  'puerta-abierta': [{"d":"2026-04-30","t":"6:00 PM","v":"Puerta Abierta, Santiago Atitl\u00e1n"}],
-  'purdue-university-screening': [{"d":"2026-09-01","v":"Purdue University, West Lafayette IN"}],
-  'sedona-international-film-festival': [{"d":"2026-02-22","t":"1:00 PM","v":"Sedona Film Festival Theatres"},{"d":"2026-02-24","t":"4:10 PM","v":"Sedona Film Festival Theatres"}],
-  'sheffield-docfest': [{"d":"2025-06-21","t":"8:45 PM","v":"Curzon Sheffield"},{"d":"2025-06-22","t":"12:45 PM","v":"The Light-Sheffield"},{"d":"2025-06-23","t":"3:15 PM","v":"Showroom Cinema","encore":true}],
-  'sheffield-spotlights-bertha-dochouse': [{"d":"2026-03-31","t":"6:20 PM","v":"Bertha DocHouse"}],
-  'unaff': [{"d":"2025-10-26","t":"1:30 PM","v":"Mitchell Park Community Center"}],
-  'waves-of-change-arts-festival': [{"d":"2025-10-09","t":"4:00 PM","v":"Tilden Main Theater"}],
-  'wayland-high-school-screening': [{"d":"2026-01-28","t":"9:00 AM","v":"Wayland High School"}],
-  'womens-international-peace-centre': [{"v":"Women\u2019s Intl Peace Centre, Kampala"}],
-  'woods-hole-film-festival': [{"d":"2025-07-30","t":"5:30 PM","v":"Clapp Auditorium"}],
-  'woodstock-film-festival': [{"d":"2025-10-16","t":"7:45 PM","v":"Upstate Films (Kingston): Upstate Midtown"},{"d":"2025-10-18","t":"6:30 PM","v":"Upstate Films (Saugerties): Orpheum Theatre"}],
-};
+// SLUG_SCREENINGS removed — screening data now comes exclusively from Webflow CMS
+// (nested Collection List bound to Events' Screenings multi-reference field).
+// If a screening is missing, add it in Airtable and re-sync to Webflow CMS.
 
 // Short display names for countries (used in "City, Country" format)
 const COUNTRY_SHORT = {
@@ -642,54 +534,8 @@ function loadEventsFromCMS() {
         encore: sd.encore === 'true' || sd.encore === 'True' ? true : undefined
       };
     });
-    // If no CMS screenings found, fall back to Airtable SLUG_SCREENINGS lookup
-    if (screenings.length === 0) {
-      const evSlug = d.id || el.getAttribute('data-slug') || '';
-      const slugScreenings = typeof SLUG_SCREENINGS !== 'undefined' && SLUG_SCREENINGS[evSlug];
-      if (slugScreenings) {
-        slugScreenings.forEach(function(ss) {
-          screenings.push({
-            type: 'in-person',
-            dateISO: ss.d || '',
-            endDateISO: '',
-            date: ss.d ? formatShortDate(ss.d) : '',
-            time: ss.t || null,
-            venue: ss.v || '',
-            venueNotes: null,
-            link: null,
-            geo: null,
-            geoLabel: null,
-            workshop: ss.ws || undefined,
-            qa: undefined,
-            encore: ss.encore || undefined
-          });
-        });
-      }
-    }
-    // If no CMS screenings found, fall back to Airtable SLUG_SCREENINGS lookup
-    if (screenings.length === 0) {
-      var evSlug = d.id || el.getAttribute('data-slug') || '';
-      var slugScreenings = typeof SLUG_SCREENINGS !== 'undefined' && SLUG_SCREENINGS[evSlug];
-      if (slugScreenings) {
-        slugScreenings.forEach(function(ss) {
-          screenings.push({
-            type: 'in-person',
-            dateISO: ss.d || '',
-            endDateISO: '',
-            date: ss.d ? formatShortDate(ss.d) : '',
-            time: ss.t || null,
-            venue: ss.v || '',
-            venueNotes: null,
-            link: null,
-            geo: null,
-            geoLabel: null,
-            workshop: ss.ws || undefined,
-            qa: undefined,
-            encore: ss.encore || undefined
-          });
-        });
-      }
-    }
+    // Screening data comes from CMS only. If no screenings found, the event
+    // simply has no screening instances to display (check Airtable + Webflow sync).
     // Parse multi-image field. Webflow's Multi-Image binding uses a Lightbox
     // element, which at publish time emits a <script class="w-json"> JSON blob
     // listing every image URL. We read from that first, then fall back to any
@@ -774,7 +620,7 @@ function loadEventsFromCMS() {
       eventStart: d.eventStart || null,
       eventEnd: d.eventEnd || null,
       upcoming: isUpcoming,
-      link: d.link || '',
+      link: (d.link || '').trim() || '#',
       photos: d.image || 0,
       award: awards.length > 0 ? (awards[0].key || awards[0].name) : null,
       awards: awards,
@@ -848,26 +694,8 @@ const events = loadEventsFromCMS();
     Original contained 64 events. See git history for reference.  */
 // --- end of CMS data loading ---
 
-// Override event links that are still missing or wrong in CMS
-var SLUG_LINKS = {
-  'sheffield-docfest': '#',
-  'anchorage-international-film-festival': '#',
-  'docsmx': '#',
-  'waves-of-change-arts-festival': '#',
-  'afi-latin-american-film-festival': '#',
-  'ford-foundation-screening-csw': '#',
-  'calgary-justice-film-festival': '#',
-  'milwaukee-dialogues-documentary-festival': '#',
-  'bath-film-festival': '#',
-  'equis-festival-de-cine-feminista-de-ecuador': '#',
-  'coast-film-festival': '#',
-  'cine-otro': '#',
-  'woods-hole-film-festival': '#',
-  'wayland-high-school-screening': '#'
-};
-events.forEach(function(ev) {
-  if (SLUG_LINKS[ev.id]) ev.link = SLUG_LINKS[ev.id];
-});
+// SLUG_LINKS removed — links now come exclusively from Webflow CMS (synced from Airtable).
+// If a link is wrong or stale, fix it in Airtable and re-sync to CMS.
 
 // Post-process each event's screenings:
 //   1. Fall back screening.link to event.link when empty.
@@ -951,11 +779,6 @@ var SLUG_AWARDS = {
 // Backfill ev.award from SLUG_AWARDS so the badge renders on the card hero
 events.forEach(function(ev) {
   if (!ev.award && SLUG_AWARDS[ev.id]) ev.award = SLUG_AWARDS[ev.id];
-});
-
-// Backfill ev.press flag from hardcoded eventPressLinks so the card shows the press link
-events.forEach(function(ev) {
-  if (!ev.press && eventPressLinks[ev.id]) ev.press = true;
 });
 
 // ===== EVENT LOGOS =====
@@ -1459,7 +1282,8 @@ function formatScreeningRowContent(s, ev) {
   // Online — Live: a synchronous streaming showtime (date + time, no venue).
   if (s.type === 'online-live') {
     const parts = [`<strong>${s.date}</strong>`];
-    if (s.time) parts.push(s.time);
+    var ft = formatTime(s.time);
+    if (ft) parts.push(ft);
     parts.push(`${SCREENING_GLOBE_SVG}${t('liveStream')}`);
     if (s.geoLabel) parts.push(s.geoLabel);
     const qa = buildQATag(ev.id, '', s.workshop);
@@ -1471,7 +1295,8 @@ function formatScreeningRowContent(s, ev) {
   var yr = s.dateISO ? s.dateISO.substring(0, 4) : '';
   if (yr && yr !== String(new Date().getFullYear())) dateStr = dateStr + ', ' + yr;
   const parts = [`<strong>${dateStr}</strong>`];
-  if (!isPast && s.time) parts.push(s.time);
+  var ft2 = formatTime(s.time);
+  if (!isPast && ft2) parts.push(ft2);
   if (s.venue) parts.push(s.venue);
   return parts.join(' · ') + buildQATag(ev.id, s.venue, s.workshop);
 }
@@ -2100,7 +1925,7 @@ document.addEventListener('keydown', e => {
 
 // ===== MAP =====
 function initMap() {
-  // Default bounds: Americas-focused, tight enough that dots are prominent
+  // Default bounds: Americas + Europe, tight enough that dots are prominent
   map = L.map('map', { center: [30, -20], zoom: 2.5, zoomSnap: 0.5, zoomDelta: 1, zoomControl: false });
   L.control.zoom({ position: 'topright' }).addTo(map);
 

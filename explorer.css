@@ -63,7 +63,7 @@
     white-space: nowrap;
   }
   .type-toggle-btn:hover { color: var(--dark); }
-  /* Inactive upcoming/past buttons: subtle color hint */
+  /* Inactive upcoming/past buttons: subtle color hint (text only, no extra border) */
   .type-toggle-btn[data-filter="upcoming"] {
     color: var(--brand-teal);
   }
@@ -73,8 +73,6 @@
   }
   .type-toggle-btn[data-filter="past"] {
     color: #c48a1a;
-    border: 1px solid rgba(240,168,48,0.3);
-    border-radius: 20px;
   }
   .type-toggle-btn[data-filter="past"]:hover {
     background: rgba(240,168,48,0.08);
