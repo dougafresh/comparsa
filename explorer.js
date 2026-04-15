@@ -335,14 +335,31 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 // Each CMS item renders a <div class="cms-event-item"> with data-* attributes.
 // See INSTRUCTIONS.md for Webflow CMS setup details.
 
-// Format a single ISO date like "2025-10-15" into a short display string like "Oct 15".
-// Used for per-screening date display (the longer form comes from formatDateRange).
-function formatShortDate(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
+// Normalize any date string into ISO "YYYY-MM-DD" format.
+// Accepts: "2025-10-15", "2025-10-15T00:00:00.000Z", "Oct 15, 2025", "October 15, 2025"
+// Returns: "2025-10-15" or "" if unparseable.
+function toISO(raw) {
+  if (!raw) return '';
+  var s = raw.trim();
+  // Already ISO? (starts with 4 digits)
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+  // Try parsing as a formatted date (e.g. Webflow's "Jul 30, 2025")
+  var d = new Date(s);
   if (isNaN(d)) return '';
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
+  var yyyy = d.getFullYear();
+  var mm = String(d.getMonth() + 1).padStart(2, '0');
+  var dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Format a date string into a short display string like "Oct 15".
+// Accepts any format that toISO() handles.
+function formatShortDate(raw) {
+  var iso = toISO(raw);
+  if (!iso) return '';
+  var parts = iso.split('-');
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${MONTHS[parseInt(parts[1], 10) - 1]} ${parseInt(parts[2], 10)}`;
 }
 
 // Format a display date range like "Oct 15–20, 2025" or "Oct 28 – Nov 2, 2025"
@@ -520,8 +537,8 @@ function loadEventsFromCMS() {
       else type = 'online-live';
       return {
         type: type,
-        dateISO: (sd.date || '').trim(),      // raw ISO from Webflow Date field
-        endDateISO: endDate,                   // raw ISO from Webflow End Date field
+        dateISO: toISO(sd.date),               // normalized to YYYY-MM-DD
+        endDateISO: toISO(endDate),            // normalized to YYYY-MM-DD
         date: formatShortDate(sd.date),        // display short form, e.g. "Oct 15"
         time: (sd.time || '').trim() || null,  // Local Start Time 24h or Local Start Time
         venue: venue,
