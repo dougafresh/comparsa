@@ -1136,6 +1136,10 @@ function setSlide(evId, delta, e) {
   document.querySelectorAll(`[data-carousel="${evId}"] .carousel-dot`).forEach((dot, i) => {
     dot.classList.toggle('active', i === idx);
   });
+  // Show/hide logo overlay: visible on slide 0, hidden on all others
+  document.querySelectorAll(`[data-logo-overlay="${evId}"]`).forEach(overlay => {
+    overlay.classList.toggle('logo-overlay-hidden', idx > 0);
+  });
 }
 
 function startAutoAdvance(evId) {
@@ -1448,23 +1452,15 @@ function renderLogo(src, alt, extraStyle) {
 }
 
 function buildCarouselSlides(ev) {
-  // Multiple event images: show photo carousel (logo becomes first slide if present)
+  // Multiple event images: photo carousel. If logo exists, it overlays the first photo.
   if (ev.eventImages && ev.eventImages.length > 0) {
-    let slides = '';
-    // If event also has a logo, show it as the first slide on a gradient
-    if (ev.logo) {
-      slides += `<div class="carousel-slide hero-slide" style="background:${getHeroGradient(ev.id, ev.type)};">
-        <div class="event-gradient" style="background:${getHeroGradient(ev.id, ev.type)}"></div>
-        ${renderLogo(ev.logo, ev.name + ' logo')}
-      </div>`;
-    }
-    slides += ev.eventImages.map((url, i) => `<div class="carousel-slide" style="background:var(--img-placeholder);">
+    let slides = ev.eventImages.map((url, i) => `<div class="carousel-slide" style="background:#1a1611;">
       <img src="${url}" alt="${ev.name} — photo ${i + 1}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy"
         onerror="this.style.display='none';this.parentElement.style.background='${getHeroGradient(ev.id, ev.type)}'">
     </div>`).join('');
     return slides;
   }
-  // Logo only (no event images): show gradient + logo
+  // Logo only (no event images): show gradient + logo (no overlay needed)
   if (ev.logo) {
     return `<div class="carousel-slide hero-slide" style="background:${getHeroGradient(ev.id, ev.type)};">
       <div class="event-gradient" style="background:${getHeroGradient(ev.id, ev.type)}"></div>
@@ -1473,7 +1469,7 @@ function buildCarouselSlides(ev) {
   }
   // Single photo
   if (ev.photos) {
-    return `<div class="carousel-slide" style="background:var(--img-placeholder);">
+    return `<div class="carousel-slide" style="background:#1a1611;">
       <img src="${ev.photos}" alt="${ev.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy"
         onerror="this.style.display='none';this.parentElement.style.background='${getHeroGradient(ev.id, ev.type)}'">
     </div>`;
@@ -1485,8 +1481,33 @@ function buildCarouselSlides(ev) {
   </div>`;
 }
 
+// Build a logo overlay that sits on top of the carousel (not inside the track).
+// It fades/slides out when the user advances past slide 0.
+function buildLogoOverlay(ev) {
+  if (!ev.logo || !ev.eventImages || ev.eventImages.length === 0) return '';
+  const idx = getSlideIndex(ev.id);
+  const hidden = idx > 0 ? ' logo-overlay-hidden' : '';
+  return `<div class="logo-overlay${hidden}" data-logo-overlay="${ev.id}">
+    <div class="logo-overlay-scrim"></div>
+    ${renderLogo(ev.logo, ev.name + ' logo')}
+  </div>`;
+}
+
 function buildCarousel(ev) {
   if (ev.upcoming) {
+    // Logo + event images: show first photo with logo overlay
+    if (ev.logo && ev.eventImages && ev.eventImages.length > 0) {
+      return `<div class="card-hero-static" style="background:#1a1611;padding:0;position:relative;cursor:pointer;" onclick="handleCardClick('${ev.id}')">
+        <img src="${ev.eventImages[0]}" alt="${ev.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">
+        <div class="logo-overlay">
+          <div class="logo-overlay-scrim"></div>
+          ${renderLogo(ev.logo, ev.name + ' logo')}
+        </div>
+        ${buildAwardBadge(ev.award, ev.id)}
+        ${getUpcomingLabel(ev) ? '<div class="hero-upcoming-tag" style="position:absolute;top:8px;right:8px;">' + getUpcomingLabel(ev) + '</div>' : ''}
+      </div>`;
+    }
+    // Logo only: gradient background
     if (ev.logo) {
       return `<div class="card-hero-static" style="background:${getHeroGradient(ev.id, ev.type)};cursor:pointer;" onclick="handleCardClick('${ev.id}')">
         <div class="event-gradient" style="background:${getHeroGradient(ev.id, ev.type)}"></div>
@@ -1496,7 +1517,7 @@ function buildCarousel(ev) {
       </div>`;
     }
     if (ev.photos) {
-      return `<div class="card-hero-static" style="background:var(--img-placeholder);padding:0;position:relative;cursor:pointer;" onclick="handleCardClick('${ev.id}')">
+      return `<div class="card-hero-static" style="background:#1a1611;padding:0;position:relative;cursor:pointer;" onclick="handleCardClick('${ev.id}')">
         ${buildAwardBadge(ev.award, ev.id)}
         <img src="${ev.photos}" alt="${ev.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;">
         ${getUpcomingLabel(ev) ? '<div class="hero-upcoming-tag" style="position:absolute;top:8px;right:8px;">' + getUpcomingLabel(ev) + '</div>' : ''}
@@ -1524,6 +1545,7 @@ function buildCarousel(ev) {
   return `<div class="card-carousel" data-carousel="${ev.id}"
     ${hasMultiple ? `onmouseenter="startAutoAdvance('${ev.id}')" onmouseleave="stopAutoAdvance('${ev.id}')"` : ''} onclick="handleCardClick('${ev.id}')">
     ${buildAwardBadge(ev.award, ev.id)}
+    ${buildLogoOverlay(ev)}
     <div class="carousel-track" style="transform:translateX(-${idx * 100}%)">${buildCarouselSlides(ev)}</div>
     ${hasMultiple ? `<button class="carousel-arrow prev" onclick="setSlide('${ev.id}', -1, event)">\u2039</button>
     <button class="carousel-arrow next" onclick="setSlide('${ev.id}', 1, event)">\u203A</button>
@@ -2459,6 +2481,7 @@ function buildPopupCarousel(ev) {
     }
   }
   return `<div class="popup-carousel-wrap" data-carousel="${ev.id}">
+    ${buildLogoOverlay(ev)}
     <div class="popup-carousel-track" style="transform:translateX(-${idx * 100}%);cursor:pointer;" onclick="openLightbox('${ev.id}', event)">${buildCarouselSlides(ev)}</div>
     ${hasMultiple ? `<button class="carousel-arrow prev" onclick="setSlide('${ev.id}', -1, event)" style="width:24px;height:24px;font-size:12px;">\u2039</button>
     <button class="carousel-arrow next" onclick="setSlide('${ev.id}', 1, event)" style="width:24px;height:24px;font-size:12px;">\u203A</button>
@@ -2472,6 +2495,18 @@ function buildPopupCarousel(ev) {
 function buildPopupHero(ev) {
   // Upcoming events: static hero (no carousel)
   if (ev.upcoming) {
+    // Logo + event images: first photo as background with logo overlay
+    if (ev.logo && ev.eventImages && ev.eventImages.length > 0) {
+      return `<div style="width:280px;aspect-ratio:16/10;background:#1a1611;position:relative;overflow:hidden;">
+        <img src="${ev.eventImages[0]}" alt="${ev.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">
+        <div class="logo-overlay">
+          <div class="logo-overlay-scrim"></div>
+          ${renderLogo(ev.logo, ev.name + ' logo', 'width:55%;max-width:140px;')}
+        </div>
+        ${getUpcomingLabel(ev) ? '<div style="position:absolute;top:8px;right:8px;background:#e04a3a;color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;box-shadow:0 2px 6px rgba(224,74,58,0.4);z-index:5;">' + getUpcomingLabel(ev) + '</div>' : ''}
+      </div>`;
+    }
+    // Logo only: gradient
     if (ev.logo) {
       return `<div style="width:280px;aspect-ratio:16/10;background:${getHeroGradient(ev.id, ev.type)};position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;">
         <div class="event-gradient" style="background:${getHeroGradient(ev.id, ev.type)}"></div>
@@ -2480,7 +2515,7 @@ function buildPopupHero(ev) {
       </div>`;
     }
     if (ev.photos) {
-      return `<div style="width:280px;aspect-ratio:16/10;background:var(--img-placeholder);position:relative;">
+      return `<div style="width:280px;aspect-ratio:16/10;background:#1a1611;position:relative;">
         <img src="${ev.photos}" alt="${ev.name}" style="width:100%;height:100%;object-fit:cover;display:block;">
         ${getUpcomingLabel(ev) ? '<div style="position:absolute;top:8px;right:8px;background:#e04a3a;color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;box-shadow:0 2px 6px rgba(224,74,58,0.4);">' + getUpcomingLabel(ev) + '</div>' : ''}
       </div>`;

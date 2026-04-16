@@ -230,7 +230,8 @@
   }
   .carousel-slide {
     min-width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-    background-size: cover; background-position: center; position: relative;
+    background-size: contain; background-position: center; background-repeat: no-repeat;
+    background-color: #1a1611; position: relative;
   }
   .carousel-slide-placeholder {
     color: rgba(255,255,255,0.6); font-size: 12px; font-weight: 500;
@@ -258,6 +259,32 @@
   .carousel-slide.photo-slide-1 { background: linear-gradient(135deg, #2c3e50, #3498db); }
   .carousel-slide.photo-slide-2 { background: linear-gradient(135deg, #8e44ad, #c0392b); }
   .carousel-slide.photo-slide-3 { background: linear-gradient(135deg, #27ae60, #2c3e50); }
+
+  /* Logo overlay — floats on top of first photo, slides/fades off on swipe */
+  .logo-overlay {
+    position: absolute; inset: 0; z-index: 4;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .logo-overlay-scrim {
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.2) 100%);
+    transition: opacity 0.4s ease;
+  }
+  .logo-overlay .hero-logo {
+    position: relative; z-index: 1;
+    max-width: 65%; max-height: 50%;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+  }
+  .logo-overlay-hidden {
+    opacity: 0;
+    transform: translateX(-30%);
+    pointer-events: none;
+  }
+  .logo-overlay-hidden .logo-overlay-scrim {
+    opacity: 0;
+  }
 
   .carousel-arrow {
     position: absolute; top: 50%; transform: translateY(-50%); z-index: 3;
@@ -543,9 +570,9 @@
   .leaflet-popup-pane { z-index: 900 !important; }
   .leaflet-popup { z-index: 900 !important; }
   .leaflet-popup-content-wrapper { border-radius: 10px !important; font-family: var(--font) !important; box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important; padding: 0 !important; overflow: hidden; background: #fffbf3 !important; color: var(--dark) !important; }
-  .leaflet-popup-tip { background: #fffbf3 !important; }
+  .leaflet-popup-tip-container { display: none !important; }
   .leaflet-popup-content { margin: 0 !important; width: 280px !important; max-width: 280px; }
-  .popup-carousel-wrap { width: 280px; aspect-ratio: 16/10; position: relative; overflow: hidden; background: var(--img-placeholder); cursor: pointer; }
+  .popup-carousel-wrap { width: 280px; aspect-ratio: 16/10; position: relative; overflow: hidden; background: #1a1611; cursor: pointer; }
   .popup-carousel-track { display: flex; height: 100%; transition: transform 0.3s ease; }
   .popup-carousel-wrap .carousel-slide { min-width: 100%; }
   .popup-carousel-wrap .carousel-arrow { opacity: 0; }
@@ -609,7 +636,7 @@
   .lightbox-overlay.visible { display: flex; }
   .lightbox-content {
     position: relative; width: 80vw; max-width: 900px; aspect-ratio: 16/10;
-    border-radius: 12px; overflow: hidden; background: var(--img-placeholder);
+    border-radius: 12px; overflow: hidden; background: #1a1611;
   }
   .lightbox-track { display: flex; height: 100%; transition: transform 0.35s ease; }
   .lightbox-track .carousel-slide { min-width: 100%; }
