@@ -26,7 +26,7 @@ const translations = {
     nearMe: 'Near me', distance: 'Distance', cityNamePlaceholder: 'City name',
     allTypes: 'All Types', allDates: 'All Dates', festival: 'Festival', community: 'Community', educational: 'Educational', special: 'Special',
     // View tooltips
-    listView: 'List view', hybridView: 'Hybrid view', mapView: 'Map view',
+    listView: 'List view', hybridView: 'Hybrid view', mapView: 'Map view', resetMap: 'Reset Map',
     // Cards
     pastBadge: 'Past', getTickets: 'Get Tickets', visitWebsite: 'Visit Website',
     tickets: 'Tickets', website: 'Website',
@@ -96,7 +96,7 @@ const translations = {
     nearMe: 'Cerca de mí', distance: 'Distancia', cityNamePlaceholder: 'Nombre de ciudad',
     allTypes: 'Todos los tipos', allDates: 'Todas las fechas', festival: 'Festival', community: 'Comunitaria', educational: 'Educativa', special: 'Especial',
     // View tooltips
-    listView: 'Vista de lista', hybridView: 'Vista híbrida', mapView: 'Vista de mapa',
+    listView: 'Vista de lista', hybridView: 'Vista híbrida', mapView: 'Vista de mapa', resetMap: 'Restablecer mapa',
     // Cards
     pastBadge: 'Pasada', getTickets: 'Comprar entradas', visitWebsite: 'Visitar sitio web',
     tickets: 'Entradas', website: 'Sitio web',
@@ -1168,16 +1168,16 @@ function getEventSlideCount(ev) {
 const gradientPalette = {
   plum:    ["#5B2C6F", "#A569BD"],
   teal:    ["#0E6655", "#1ABC9C"],
-  sunset:  ["#D35400", "#F39C12"],
+  coral:   ["#C0392B", "#E74C3C"],
   rose:    ["#8E244D", "#E74C8B"],
   indigo:  ["#1A237E", "#5C6BC0"]
 };
 const categoryGradientMap = {
-  festival:    ["indigo", "plum", "rose", "teal", "sunset"],
-  community:   ["teal", "sunset", "plum", "rose", "indigo"],
-  educational: ["indigo", "plum", "teal", "rose", "sunset"],
-  special:     ["sunset", "teal", "rose", "plum", "indigo"],
-  default:     ["indigo", "plum", "teal", "sunset", "rose"]
+  festival:    ["indigo", "plum", "rose", "teal", "coral"],
+  community:   ["teal", "coral", "plum", "rose", "indigo"],
+  educational: ["indigo", "plum", "teal", "rose", "coral"],
+  special:     ["coral", "teal", "rose", "plum", "indigo"],
+  default:     ["indigo", "plum", "teal", "coral", "rose"]
 };
 function hashString(str) {
   let hash = 0;
@@ -1987,22 +1987,20 @@ function initMap() {
   L.control.zoom({ position: 'topright' }).addTo(map);
 
   // Reset map button
-  const ResetControl = L.Control.extend({
-    options: { position: 'topright' },
-    onAdd: function() {
-      const btn = L.DomUtil.create('button', 'leaflet-bar leaflet-control reset-map-btn');
-      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>';
-      btn.title = 'Reset map';
-      btn.type = 'button';
-      L.DomEvent.disableClickPropagation(btn);
-      btn.addEventListener('click', () => {
-        closeMapCardPanel();
-        map.flyTo([30, -20], 2.5, { duration: 1.0 });
-      });
-      return btn;
-    }
-  });
-  new ResetControl().addTo(map);
+  // Reset map button — injected above the #map element inside .map-panel
+  const mapPanel = document.querySelector('.map-panel');
+  if (mapPanel) {
+    const resetBar = document.createElement('div');
+    resetBar.className = 'map-reset-bar';
+    resetBar.innerHTML = `<button class="map-reset-btn" type="button" id="resetMapBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      ${t('resetMap')}</button>`;
+    mapPanel.insertBefore(resetBar, document.getElementById('map'));
+    resetBar.querySelector('.map-reset-btn').addEventListener('click', () => {
+      closeMapCardPanel();
+      map.flyTo([30, -20], 2.5, { duration: 1.0 });
+    });
+  }
 
   // CartoDB Voyager (no labels) — warm, colorful base; our custom overlays provide screening-city labels
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
@@ -2900,8 +2898,13 @@ function matchesFilters(ev) {
 }
 let lastVisibleEvents = null;
 let showingCachedResults = false;
+function isMapVisible() {
+  const panel = document.querySelector('.map-panel');
+  return panel && panel.offsetWidth > 0;
+}
 function filterByMapBounds() {
-  if(!map) return; const b=map.getBounds();
+  if(!map || !isMapVisible()) { filteredEvents=events.filter(matchesFilters); renderList(); return; }
+  const b=map.getBounds();
   const allMatching = events.filter(ev => matchesFilters(ev));
   const onlineEvents = allMatching.filter(ev => ev.lat===0 && ev.lng===0);
   const physicalInBounds = allMatching.filter(ev => ev.lat!==0 || ev.lng!==0).filter(ev => b.contains([ev.lat,ev.lng]));
