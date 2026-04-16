@@ -561,9 +561,15 @@
 
   /* MAP */
   .map-panel { flex: 1; position: relative; transition: flex 0.3s ease; }
-  #map { width: 100%; height: 100%; z-index: 1; }
-  /* Watercolor map — no filter needed */
+  #map { width: 100%; height: 100%; z-index: 1; background: #1A5276; }
+  /* CartoDB Voyager tiles — slightly saturated, ocean tinted via map background */
   .leaflet-tile-pane { filter: saturate(1.4) brightness(0.97); }
+  /* Darken ocean areas: the map bg (#1A5276) shows through transparent water tiles.
+     For tile sets that render water opaquely, this CSS mix-blend darkens the light blue. */
+  .leaflet-tile-pane::after {
+    content: ''; position: absolute; inset: 0; z-index: -1;
+    background: #1A5276; mix-blend-mode: multiply; pointer-events: none;
+  }
   .leaflet-tile { will-change: transform; backface-visibility: hidden; outline: 1px solid transparent; }
   .leaflet-marker-pane, .leaflet-popup-pane, .leaflet-overlay-pane { filter: none; }
   .leaflet-marker-pane { z-index: 600 !important; }
@@ -819,11 +825,12 @@
     transition: opacity 0.15s;
     pointer-events: none;
   }
-  /* Hide ALL city labels when a map card or popup is open */
-  .map-card-open .label-text-overlay {
-    opacity: 0.3;
+  /* Dim ALL city labels when a map card or popup is open */
+  .map-card-open .label-text-overlay,
+  .map-popup-open .label-text-overlay {
+    opacity: 0.15;
     pointer-events: none;
-    transition: opacity 0.2s;
+    transition: opacity 0.25s;
   }
 
   /* Leaflet controls dark theme */

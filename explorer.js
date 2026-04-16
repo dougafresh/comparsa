@@ -1150,7 +1150,7 @@ function startAutoAdvance(evId) {
   if (!ev || ev.upcoming) return;
   const totalSlides = getEventSlideCount(ev);
   if (totalSlides <= 1) return;
-  autoAdvanceTimers[evId] = setInterval(() => { setSlide(evId, 1, null); }, 2200);
+  autoAdvanceTimers[evId] = setInterval(() => { setSlide(evId, 1, null); }, 4500);
 }
 function stopAutoAdvance(evId) {
   if (autoAdvanceTimers[evId]) { clearInterval(autoAdvanceTimers[evId]); delete autoAdvanceTimers[evId]; }
@@ -1166,19 +1166,19 @@ function getEventSlideCount(ev) {
 // Bright, fun gradients for events without hero art
 // --- Gradient palette system (category-aware, deterministic) ---
 const gradientPalette = {
-  ocean:   ["#1A5276", "#2E86C1"],
   plum:    ["#5B2C6F", "#A569BD"],
   teal:    ["#0E6655", "#1ABC9C"],
   sunset:  ["#D35400", "#F39C12"],
   rose:    ["#8E244D", "#E74C8B"],
-  indigo:  ["#1A237E", "#5C6BC0"]
+  indigo:  ["#1A237E", "#5C6BC0"],
+  ember:   ["#7B341E", "#C05621"]
 };
 const categoryGradientMap = {
-  festival:    ["ocean", "plum", "indigo", "rose", "teal", "sunset"],
-  community:   ["teal", "sunset", "ocean", "plum", "rose", "indigo"],
-  educational: ["ocean", "indigo", "plum", "teal", "rose", "sunset"],
-  special:     ["sunset", "teal", "rose", "plum", "ocean", "indigo"],
-  default:     ["ocean", "plum", "teal", "sunset", "rose", "indigo"]
+  festival:    ["indigo", "plum", "rose", "teal", "sunset", "ember"],
+  community:   ["teal", "sunset", "ember", "plum", "rose", "indigo"],
+  educational: ["indigo", "plum", "teal", "rose", "sunset", "ember"],
+  special:     ["sunset", "teal", "rose", "plum", "ember", "indigo"],
+  default:     ["indigo", "plum", "teal", "sunset", "rose", "ember"]
 };
 function hashString(str) {
   let hash = 0;
@@ -2075,6 +2075,7 @@ function initMap() {
   let popupHiddenLabels = [], popupHiddenLines = [];
   map.on('popupopen', (e) => {
     window._mapPopupOpen = true;
+    document.getElementById('map')?.classList.add('map-popup-open');
     setTimeout(() => {
       const popupEl = e.popup._container;
       if (!popupEl || !labelTextOverlay) return;
@@ -2096,6 +2097,7 @@ function initMap() {
   });
   map.on('popupclose', () => {
     window._mapPopupOpen = false;
+    document.getElementById('map')?.classList.remove('map-popup-open');
     popupHiddenLabels.forEach(el => el.classList.remove('popup-hidden'));
     popupHiddenLabels = [];
     popupHiddenLines.forEach(l => l.style.opacity = '');
