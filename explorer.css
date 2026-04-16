@@ -55,6 +55,7 @@
     gap: 2px;
   }
   .type-toggle-btn {
+    flex: 1;
     padding: 6px 14px;
     border: none;
     border-radius: 20px;
@@ -63,6 +64,7 @@
     font-size: 12.5px;
     font-weight: 500;
     color: var(--mid);
+    text-align: center;
     cursor: pointer;
     transition: color 0.25s, background 0.35s, box-shadow 0.35s;
     white-space: nowrap;
@@ -124,6 +126,7 @@
     gap: 2px;
   }
   .region-toggle-btn {
+    flex: 1;
     padding: 6px 14px;
     border: none;
     border-radius: 20px;
@@ -132,6 +135,7 @@
     font-size: 12.5px;
     font-weight: 500;
     color: var(--mid);
+    text-align: center;
     cursor: pointer;
     transition: color 0.25s, background 0.35s ease, box-shadow 0.35s ease;
     display: flex;
@@ -276,6 +280,12 @@
     position: relative; z-index: 1;
     max-width: 65%; max-height: 50%;
     filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+  }
+  .logo-overlay .hero-event-name {
+    color: #fffbf3; font-size: 18px; font-weight: 800; text-align: center;
+    padding: 0 24px; line-height: 1.25; text-transform: uppercase; letter-spacing: 2px;
+    font-family: 'Heavitas', 'Anton', 'Oswald', 'Impact', var(--font);
+    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
   }
   .logo-overlay-hidden {
     opacity: 0;
@@ -561,22 +571,21 @@
 
   /* MAP */
   .map-panel { flex: 1; position: relative; transition: flex 0.3s ease; }
-  #map { width: 100%; height: 100%; z-index: 1; background: #1A5276; }
+  #map { width: 100%; height: 100%; z-index: 1; background: #0F3354; }
   /* CartoDB Voyager tiles — slightly saturated, ocean tinted via map background */
-  .leaflet-tile-pane { filter: saturate(1.4) brightness(0.97); }
-  /* Darken ocean areas: the map bg (#1A5276) shows through transparent water tiles.
-     For tile sets that render water opaquely, this CSS mix-blend darkens the light blue. */
-  .leaflet-tile-pane::after {
-    content: ''; position: absolute; inset: 0; z-index: -1;
-    background: #1A5276; mix-blend-mode: multiply; pointer-events: none;
-  }
+  .leaflet-tile-pane { filter: saturate(1.4) brightness(0.97); mix-blend-mode: multiply; }
   .leaflet-tile { will-change: transform; backface-visibility: hidden; outline: 1px solid transparent; }
   .leaflet-marker-pane, .leaflet-popup-pane, .leaflet-overlay-pane { filter: none; }
   .leaflet-marker-pane { z-index: 600 !important; }
   .leaflet-popup-pane { z-index: 900 !important; }
   .leaflet-popup { z-index: 900 !important; }
   .leaflet-popup-content-wrapper { border-radius: 10px !important; font-family: var(--font) !important; box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important; padding: 0 !important; overflow: hidden; background: #fffbf3 !important; color: var(--dark) !important; }
-  .leaflet-popup-tip-container { display: none !important; }
+  .leaflet-popup-tip-container { margin-top: -1px; }
+  .leaflet-popup-tip {
+    background: #fffbf3 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
   .leaflet-popup-content { margin: 0 !important; width: 280px !important; max-width: 280px; }
   .popup-carousel-wrap { width: 280px; aspect-ratio: 16/10; position: relative; overflow: hidden; background: #1a1611; cursor: pointer; }
   .popup-carousel-track { display: flex; height: 100%; transition: transform 0.3s ease; }
