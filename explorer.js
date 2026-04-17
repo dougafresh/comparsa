@@ -2008,6 +2008,13 @@ function initMap() {
     subdomains: 'abcd',
     maxZoom: 19
   }).addTo(map);
+
+  // Ocean tint: multiply a deep navy over the tiles so light-blue water becomes dark
+  // while white/beige land stays almost unchanged.
+  const oceanOverlay = document.createElement('div');
+  oceanOverlay.className = 'ocean-tint-overlay';
+  map.getContainer().querySelector('.leaflet-map-pane').appendChild(oceanOverlay);
+
   initLabelOverlays();
   addMapMarkers();
   let moveEndTimer = null;
@@ -2576,7 +2583,7 @@ function addMapMarkers() {
     }
     const popup = `${buildPopupHero(ev)}<div class="popup-body">${buildPopupAwardBadge(ev.award, ev.id)}<div class="popup-title">${ev.name}</div>${buildPremiereBadge(ev.id)}<div class="popup-meta">${formatLocation(ev)}</div>${popupDateInfo}${ev.link!=='#'?`<a href="${ev.link}" target="_blank" class="popup-link ${linkClass}">${linkLabel} \u2192</a>`:''}${pressLink}</div>`;
     const marker = L.marker([ev.lat,ev.lng],{icon:markerIcon(ev.upcoming,false)}).addTo(map);
-    marker.bindPopup(popup,{offset:[0,2],maxWidth:280,minWidth:280,className:'custom-popup'});
+    marker.bindPopup(popup,{offset:[0,-4],maxWidth:280,minWidth:280,className:'custom-popup'});
     marker.on('mouseover',()=>{
       const el = marker.getElement();
       if (el) { const dot = el.querySelector('.marker-dot'); if (dot) dot.classList.add('marker-highlighted'); }
@@ -2982,6 +2989,46 @@ function handleGeolocate() {
 
 // ===== EVENTS =====
 // bindFilterEvents is called both on init and when rebuildUI replaces filter HTML
+// ===== PILL SLIDER =====
+// Creates (or reuses) a sliding pill background inside a toggle container
+// and positions it behind the active button.
+function positionPillSlider(container, colorClass) {
+  if (!container) return;
+  let slider = container.querySelector('.pill-slider');
+  if (!slider) {
+    slider = document.createElement('div');
+    slider.className = 'pill-slider';
+    container.insertBefore(slider, container.firstChild);
+  }
+  const active = container.querySelector('.active');
+  if (!active) { slider.style.opacity = '0'; return; }
+  slider.style.opacity = '1';
+  // Remove old color classes, add new one
+  slider.classList.remove('pill-coral', 'pill-teal', 'pill-amber');
+  if (colorClass) slider.classList.add(colorClass);
+  // Position relative to container padding
+  const cRect = container.getBoundingClientRect();
+  const aRect = active.getBoundingClientRect();
+  slider.style.left = (aRect.left - cRect.left) + 'px';
+  slider.style.width = aRect.width + 'px';
+}
+
+// Determine pill color for the time filter based on which button is active
+function getTimePillColor(filter) {
+  if (filter === 'upcoming') return 'pill-teal';
+  if (filter === 'past') return 'pill-amber';
+  return 'pill-coral';
+}
+
+function initAllPillSliders() {
+  const timeToggle = document.querySelector('#timeFilters');
+  positionPillSlider(timeToggle, getTimePillColor(timeFilter));
+  const typeToggle = document.querySelector('#typeFilterRow .type-toggle');
+  positionPillSlider(typeToggle, 'pill-coral');
+  const regionToggle = document.querySelector('#regionToggle');
+  positionPillSlider(regionToggle, null); // uses region-toggle's own .pill-slider style
+}
+
 function bindFilterEvents() {
   // Region toggle
   document.querySelectorAll('#regionToggle .region-toggle-btn').forEach(btn => {
@@ -2991,6 +3038,7 @@ function bindFilterEvents() {
       document.querySelectorAll('#regionToggle .region-toggle-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       regionFilter = btn.dataset.region;
+      positionPillSlider(document.querySelector('#regionToggle'), null);
       applyFilters();
       if (regionFilter === 'guatemala') {
         map.flyTo([14.9, -90.4], 7, { animate: true, duration: 1.2 });
@@ -3002,13 +3050,28 @@ function bindFilterEvents() {
 
   document.querySelectorAll('#timeFilters .type-toggle-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.filter === timeFilter);
-    btn.addEventListener('click', () => { document.querySelectorAll('#timeFilters .type-toggle-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); timeFilter=btn.dataset.filter; applyFilters(); });
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#timeFilters .type-toggle-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      timeFilter=btn.dataset.filter;
+      positionPillSlider(document.querySelector('#timeFilters'), getTimePillColor(timeFilter));
+      applyFilters();
+    });
   });
 
   document.querySelectorAll('#typeFilterRow .type-toggle-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.type === typeFilter);
-    btn.addEventListener('click', () => { document.querySelectorAll('#typeFilterRow .type-toggle-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); typeFilter=btn.dataset.type; applyFilters(); });
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#typeFilterRow .type-toggle-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      typeFilter=btn.dataset.type;
+      positionPillSlider(document.querySelector('#typeFilterRow .type-toggle'), 'pill-coral');
+      applyFilters();
+    });
   });
+
+  // Initialize pill sliders after buttons are set up
+  requestAnimationFrame(() => initAllPillSliders());
 
   // Custom sort dropdown behavior
   const sortBtn = document.getElementById('sortBtn');
@@ -3059,6 +3122,9 @@ function bindEvents() {
   document.querySelectorAll('.view-toggle').forEach(btn => btn.addEventListener('click', () => setView(btn.dataset.view)));
 
   document.getElementById('mobileToggle').addEventListener('click', () => { isMobileMapOpen=!isMobileMapOpen; const mt=document.getElementById('mobileToggle'); if(isMobileMapOpen){setView('map');mt.querySelector('span').textContent=t('listView');}else{setView('list');mt.querySelector('span').textContent=t('mapView');} });
+
+  // Reposition pill sliders on resize
+  window.addEventListener('resize', () => requestAnimationFrame(initAllPillSliders));
 }
 
 // ===== NOTIFY ME FEATURE =====
