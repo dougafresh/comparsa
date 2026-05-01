@@ -392,7 +392,7 @@ const SLUG_DATA = {
   'philedelphia-latino-arts-and-film-festival-phlaff': { status: 'invited', state: 'PA' },
   'oacnudh': { status: 'invited' },
   'costa-rica-festival-internacional-de-cine-crfic': { status: 'invited' },
-  'cine-las-americas': { status: 'invited', state: 'TX' },
+  'cine-las-americas': { status: 'announced', state: 'TX' },
   'fundacion-ixcanul-cine-para-decidir': { status: 'invited' },
   'river-film-festival-padova': { status: 'invited' },
   'cinebh-bh-international-film-festival': { status: 'preselected' },
