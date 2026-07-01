@@ -1108,7 +1108,43 @@ window.addEventListener('load', () => {
   });
   if (found) renderList();
 });
-function checkURLParams() { const v = new URLSearchParams(window.location.search).get('view'); if (v && ['list','map','hybrid'].includes(v)) setView(v); }
+function checkURLParams() {
+  const p = new URLSearchParams(window.location.search);
+
+  // View: list | map | hybrid
+  const v = p.get('view');
+  if (v && ['list','map','hybrid'].includes(v)) setView(v);
+
+  // Time filter: all | upcoming | past
+  const f = p.get('filter');
+  if (f && ['all','upcoming','past'].includes(f)) {
+    timeFilter = f;
+    document.querySelectorAll('#timeFilters .type-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+  }
+
+  // Type filter: all | festival | community | educational | special
+  const ty = p.get('type');
+  if (ty && ['all','festival','community','educational','special'].includes(ty)) {
+    typeFilter = ty;
+    document.querySelectorAll('#typeFilterRow .type-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.type === ty));
+  }
+
+  // Region: worldwide | guatemala
+  const r = p.get('region');
+  if (r && ['worldwide','guatemala'].includes(r)) {
+    regionFilter = r;
+    document.querySelectorAll('#regionToggle .region-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.region === r));
+  }
+
+  // If any filter param was set, reposition pill sliders, re-apply filters, and move the map for region
+  if (f || ty || r) {
+    requestAnimationFrame(() => initAllPillSliders());
+    applyFilters();
+    if (r === 'guatemala' && typeof map !== 'undefined' && map) {
+      map.flyTo([14.9, -90.4], 7, { animate: true, duration: 1.2 });
+    }
+  }
+}
 
 // ===== CAROUSEL =====
 function getSlideIndex(id) { return carouselStates[id] || 0; }
