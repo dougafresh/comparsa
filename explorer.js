@@ -392,7 +392,7 @@ const SLUG_DATA = {
   'philedelphia-latino-arts-and-film-festival-phlaff': { status: 'invited', state: 'PA' },
   'oacnudh': { status: 'invited' },
   'costa-rica-festival-internacional-de-cine-crfic': { status: 'invited' },
-  'cine-las-americas': { status: 'announced', state: 'TX' },
+  'cine-las-americas': { status: 'invited', state: 'TX' },
   'fundacion-ixcanul-cine-para-decidir': { status: 'invited' },
   'river-film-festival-padova': { status: 'invited' },
   'cinebh-bh-international-film-festival': { status: 'preselected' },
@@ -1981,9 +1981,17 @@ document.addEventListener('keydown', e => {
 });
 
 // ===== MAP =====
+// Default framing: continental US (48 states) + Europe + North Africa (incl. Egypt),
+// with a hard cap east of ~40°E so we don't show large swaths of empty Asia.
+const DEFAULT_MAP_BOUNDS = [[15, -130], [55, 40]];
+const DEFAULT_FIT_OPTIONS = { padding: [12, 12] };
+
 function initMap() {
-  // Default bounds: Americas + Europe, tight enough that dots are prominent
-  map = L.map('map', { center: [30, -20], zoom: 2.5, zoomSnap: 0.5, zoomDelta: 1, zoomControl: false });
+  // Seed an initial center/zoom as a safety fallback; fitBounds overrides it.
+  map = L.map('map', { center: [35, -45], zoom: 3, zoomSnap: 0.5, zoomDelta: 1, zoomControl: false });
+  // Use fitBounds so the visible frame honors the container width and consistently
+  // shows the continental US through Egypt regardless of viewport size.
+  map.fitBounds(DEFAULT_MAP_BOUNDS, { ...DEFAULT_FIT_OPTIONS, animate: false });
   L.control.zoom({ position: 'topright' }).addTo(map);
 
   // Reset map button
@@ -1998,7 +2006,7 @@ function initMap() {
     mapPanel.insertBefore(resetBar, document.getElementById('map'));
     resetBar.querySelector('.map-reset-btn').addEventListener('click', () => {
       closeMapCardPanel();
-      map.flyTo([30, -20], 2.5, { duration: 1.0 });
+      map.flyToBounds(DEFAULT_MAP_BOUNDS, { ...DEFAULT_FIT_OPTIONS, duration: 1.0 });
     });
   }
 
@@ -2726,7 +2734,7 @@ function updateMapEmptyOverlay(show) {
       overlay.innerHTML = `
         <div class="map-empty-message">
           <p>No screenings in this area</p>
-          <button class="zoom-out-btn" onclick="map.flyTo([25, -65], 2.5, {duration: 1.0});">Zoom out</button>
+          <button class="zoom-out-btn" onclick="map.flyToBounds(DEFAULT_MAP_BOUNDS, {...DEFAULT_FIT_OPTIONS, duration: 1.0});">Zoom out</button>
         </div>
       `;
       document.getElementById('map').appendChild(overlay);
@@ -2818,15 +2826,17 @@ function sortEvents(eventsToSort) {
 // ===== LIST =====
 function renderList() {
   const grid = document.getElementById('screeningGrid');
-  let list = (currentView==='hybrid' || currentView==='map') ? filteredEvents : events.filter(matchesFilters);
+  const isMapMode = (currentView==='hybrid' || currentView==='map');
+  let list = isMapMode ? filteredEvents : events.filter(matchesFilters);
   list = sortEvents(list);
+  const elsewhere = isMapMode ? sortEvents(elsewhereEvents.slice()) : [];
 
-  if (!list.length) {
+  if (!list.length && !elsewhere.length) {
     grid.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><p>${t('noScreenings')}<br>${t('tryAdjusting')}</p></div>`;
     updateResultCount(0); return;
   }
 
-  grid.innerHTML = list.map(ev => {
+  const cardHTML = ev => {
     const multi = ev.screenings.length>1;
     const linkLabel = ev.upcoming ? t('getTickets') : t('visitWebsite') + ' \u2192';
     const linkClass = ev.upcoming ? 'card-link upcoming-link' : 'card-link past-link';
@@ -2859,11 +2869,13 @@ function renderList() {
         ${(ev.link!=='#' || ev.press || ev.flyer || (ev.online && ev.online.link)) ? `<div class="card-links">${ev.link!=='#'?`<a href="${ev.link}" target="_blank" class="${linkClass}" onclick="event.stopPropagation()">${linkLabel}</a>`:''}${buildFlyerLink(ev)}${ev.online && ev.online.link && getStreamStatus(ev.online) && getStreamStatus(ev.online).status==='live' ? `<a href="${ev.online.link}" target="_blank" class="card-link" style="color:#4caf50;" onclick="event.stopPropagation()">${t('watchOnline')} \u2192</a>` : ''}${!ev.upcoming && ev.press?`<a href="#" class="card-link press-link" onclick="openPressPopover('${ev.id}', this); event.stopPropagation(); event.preventDefault();">${t('pressLink')} \u2192</a>`:''}</div>` : ''}
       </div>
     </div>`;
-  }).join('');
+  };
+  // In map view: results inside the current map bounds first, then the rest.
+  grid.innerHTML = list.concat(elsewhere).map(cardHTML).join('');
 
   grid.innerHTML += `<div class="notify-section"><div class="notify-banner"><h3>${t('notifyTitle')}</h3><p>${t('notifyDesc')}</p><div class="notify-form"><input type="email" placeholder="${t('emailPlaceholder')}" style="flex:1;min-width:180px;"><input type="text" placeholder="${t('cityPlaceholder')}" style="width:140px;" id="notifyCity"><select id="notifyRadius"><option value="25">${t('miles25')}</option><option value="50" selected>${t('miles50')}</option><option value="100">${t('miles100')}</option><option value="250">${t('miles250')}</option></select><button class="notify-submit" onclick="addNotifyCity()">${t('addCity')}</button></div><div class="city-chips" id="cityChips"></div><div style="margin-top:16px;"><button class="notify-submit" style="opacity:0.5;cursor:not-allowed;" disabled>${t('subscribe')}</button></div></div></div>`;
 
-  updateResultCount(list.length);
+  updateResultCount(list.length + elsewhere.length);
   grid.querySelectorAll('.event-card').forEach(card => {
     card.addEventListener('mouseenter', () => { highlightedId=card.dataset.id; highlightMarker(card.dataset.id); if (!window._mapPopupOpen) showHoverLabel(card.dataset.id); });
     card.addEventListener('mouseleave', () => { highlightedId=null; highlightMarker(null); hideHoverLabel(); });
@@ -2904,17 +2916,20 @@ function matchesFilters(ev) {
   return true;
 }
 let lastVisibleEvents = null;
+let elsewhereEvents = [];
 let showingCachedResults = false;
 function isMapVisible() {
   const panel = document.querySelector('.map-panel');
   return panel && panel.offsetWidth > 0;
 }
 function filterByMapBounds() {
-  if(!map || !isMapVisible()) { filteredEvents=events.filter(matchesFilters); renderList(); return; }
+  if(!map || !isMapVisible()) { elsewhereEvents=[]; filteredEvents=events.filter(matchesFilters); renderList(); return; }
   const b=map.getBounds();
   const allMatching = events.filter(ev => matchesFilters(ev));
   const onlineEvents = allMatching.filter(ev => ev.lat===0 && ev.lng===0);
-  const physicalInBounds = allMatching.filter(ev => ev.lat!==0 || ev.lng!==0).filter(ev => b.contains([ev.lat,ev.lng]));
+  const physical = allMatching.filter(ev => ev.lat!==0 || ev.lng!==0);
+  const physicalInBounds = physical.filter(ev => b.contains([ev.lat,ev.lng]));
+  elsewhereEvents = physical.filter(ev => !b.contains([ev.lat,ev.lng]));
   filteredEvents = [...physicalInBounds, ...onlineEvents];
   // Show/hide map overlay when no physical pins in view
   updateMapEmptyOverlay(physicalInBounds.length === 0 && allMatching.some(ev => ev.lat !== 0 || ev.lng !== 0));
@@ -2952,7 +2967,7 @@ function setView(view) {
   currentView=view; showingCachedResults=false; document.getElementById('mainContent').className=`main view-${view}`;
   document.querySelectorAll('.view-toggle').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
   closeMapCardPanel();
-  setTimeout(()=>{ if(map) { map.invalidateSize(); if(view==='map') { map.setView([30, -20], 3, {animate:false}); addMapMarkers(); } } if(view==='hybrid' || view==='map') filterByMapBounds(); else { filteredEvents=events.filter(matchesFilters); renderList(); } },350);
+  setTimeout(()=>{ if(map) { map.invalidateSize(); if(view==='map') { map.fitBounds(DEFAULT_MAP_BOUNDS, {...DEFAULT_FIT_OPTIONS, animate:false}); addMapMarkers(); } } if(view==='hybrid' || view==='map') filterByMapBounds(); else { filteredEvents=events.filter(matchesFilters); renderList(); } },350);
   setTimeout(()=>{ if(map) map.invalidateSize(); },700);
   const u=new URL(window.location); u.searchParams.set('view',currentView); window.history.replaceState({},'',u);
 }
@@ -3043,7 +3058,7 @@ function bindFilterEvents() {
       if (regionFilter === 'guatemala') {
         map.flyTo([14.9, -90.4], 7, { animate: true, duration: 1.2 });
       } else {
-        map.flyTo([25, -65], 2.5, { animate: true, duration: 1.2 });
+        map.flyToBounds(DEFAULT_MAP_BOUNDS, { ...DEFAULT_FIT_OPTIONS, duration: 1.2 });
       }
     });
   });
