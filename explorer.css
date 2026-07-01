@@ -42,9 +42,14 @@
   .filter-row-1 > .filter-divider:nth-of-type(2) { display: none; }
   .filter-row-2 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .type-filter-label { font-size: 12.5px; font-weight: 600; color: var(--mid); white-space: nowrap; }
-  /* Pill-slider toggle — shared base for date and type filters */
+  /* Pill-slider toggle — shared base for date and type filters.
+     Uses inline-grid with equal columns so every button is the same width as
+     the widest label. This keeps the sliding pill's shape constant regardless
+     of which button is active. */
   .type-toggle {
-    display: inline-flex;
+    display: inline-grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
     position: relative;
     border-radius: 24px;
     border: 1px solid var(--border);
@@ -106,9 +111,11 @@
   .filter-btn[data-filter="past"]:hover { color: #b37a0a; border-color: rgba(240,168,48,0.6); }
   .filter-btn.active[data-filter="past"] { background: #f0a830; color: #fff; border-color: #f0a830; box-shadow: 0 2px 8px rgba(240,168,48,0.3); }
 
-  /* Region toggle — pill slider */
+  /* Region toggle — pill slider (same equal-column grid approach as .type-toggle) */
   .region-toggle {
-    display: inline-flex;
+    display: inline-grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
     position: relative;
     border-radius: 24px;
     border: 1px solid var(--border);
@@ -583,6 +590,18 @@
   .leaflet-tile { will-change: transform; backface-visibility: hidden; outline: 1px solid transparent; }
   .leaflet-marker-pane, .leaflet-popup-pane, .leaflet-overlay-pane { filter: none; }
   .leaflet-marker-pane { z-index: 600 !important; }
+  /* Suppress the browser's default blue focus ring that wraps map pins on click.
+     We rely on our own .marker-highlighted scale + shadow to indicate selection. */
+  .leaflet-marker-icon,
+  .leaflet-marker-icon:focus,
+  .leaflet-marker-icon:focus-visible,
+  .leaflet-interactive:focus,
+  .leaflet-interactive:focus-visible,
+  .leaflet-container a.leaflet-popup-close-button:focus {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+  .leaflet-marker-icon .marker-dot { outline: none !important; }
   .leaflet-popup-pane { z-index: 900 !important; }
   .leaflet-popup { z-index: 900 !important; }
   .leaflet-popup-content-wrapper { border-radius: 10px !important; font-family: var(--font) !important; box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important; padding: 0 !important; overflow: hidden; background: #fffbf3 !important; color: var(--dark) !important; }
@@ -597,6 +616,7 @@
     border-top: 10px solid #fffbf3 !important;
     margin: 0 auto !important;
     padding: 0 !important;
+    transform: none !important; /* cancel Leaflet's rotate(45deg) so the CSS triangle points straight down */
   }
   .leaflet-popup-content { margin: 0 !important; width: 280px !important; max-width: 280px; }
   .popup-carousel-wrap { width: 280px; aspect-ratio: 16/10; position: relative; overflow: hidden; background: #1a1611; cursor: pointer; }
