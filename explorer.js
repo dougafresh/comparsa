@@ -2053,7 +2053,7 @@ document.addEventListener('keydown', e => {
 // ===== MAP =====
 // Default framing: continental US (48 states) + Europe + North Africa (incl. Egypt),
 // with a hard cap east of ~40°E so we don't show large swaths of empty Asia.
-const DEFAULT_MAP_BOUNDS = [[15, -130], [55, 40]];
+const DEFAULT_MAP_BOUNDS = [[-35, -150], [62, 155]];
 const DEFAULT_FIT_OPTIONS = { padding: [12, 12] };
 
 function initMap() {
