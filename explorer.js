@@ -432,6 +432,10 @@ const SLUG_DATA = {
   'friendship-bridge-screening': { state: 'CO' },
   'beyond-our-borders-retreat': { state: 'CO' },
   'purdue-university-screening': { state: 'IN' },
+  'maine-international-film-festival': { state: 'ME' },
+  'university-of-minnesota-screening': { state: 'MN' },
+  'la-colaborativa': { state: 'MA' },
+  'basement-trybe': { state: 'MA' },
   // — Non-US/Canada events with Website Dates —
   'close-up-edinburgh-docufest': { dates: ['2026-04-05'], dateDisplay: 'discrete' },
   'sheffield-spotlights-bertha-dochouse': { dates: ['2026-03-13'], dateDisplay: 'discrete' },
@@ -509,6 +513,21 @@ function formatWebsiteDates(dates, displayType) {
     return MO[parsed[0].getUTCMonth()] + ' ' + parsed.map(d => d.getUTCDate()).join(' & ');
   }
   return parsed.map(d => fmt(d)).join(' & ');
+}
+
+// Format a premiere "status" into a display label.
+// The CMS/Airtable "Premiere Status" field stores just the region word
+// (e.g. "London", "World", "West Coast"); we append " Premiere" for display.
+// Empty / "none" / "[none]" → no badge. Values already ending in "Premiere"
+// (or containing a comma, e.g. "Central America, Guatemala") pass through as-is.
+function formatPremiereLabel(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  const low = s.toLowerCase();
+  if (low === 'none' || low === '[none]' || low === 'n/a') return null;
+  if (/premiere$/i.test(s)) return s;
+  return s + ' Premiere';
 }
 
 function loadEventsFromCMS() {
@@ -689,7 +708,11 @@ function loadEventsFromCMS() {
           return formatWebsiteDates(lookup.dates, lookup.dateDisplay || 'discrete');
         }
         return null;
-      })()
+      })(),
+      // Premiere label from CMS "Premiere Status" (data-premiere). Region word only
+      // in the CMS (e.g. "London") — formatPremiereLabel appends " Premiere".
+      // If empty here, getPremiere() falls back to the legacy premiereMap at render time.
+      premiere: formatPremiereLabel(d.premiere)
     };
   }).filter(ev => {
     // Hide upcoming events whose Event Status is not "Announced".
@@ -1108,7 +1131,43 @@ window.addEventListener('load', () => {
   });
   if (found) renderList();
 });
-function checkURLParams() { const v = new URLSearchParams(window.location.search).get('view'); if (v && ['list','map','hybrid'].includes(v)) setView(v); }
+function checkURLParams() {
+  const p = new URLSearchParams(window.location.search);
+
+  // View: list | map | hybrid
+  const v = p.get('view');
+  if (v && ['list','map','hybrid'].includes(v)) setView(v);
+
+  // Time filter: all | upcoming | past
+  const f = p.get('filter');
+  if (f && ['all','upcoming','past'].includes(f)) {
+    timeFilter = f;
+    document.querySelectorAll('#timeFilters .type-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+  }
+
+  // Type filter: all | festival | community | educational | special
+  const ty = p.get('type');
+  if (ty && ['all','festival','community','educational','special'].includes(ty)) {
+    typeFilter = ty;
+    document.querySelectorAll('#typeFilterRow .type-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.type === ty));
+  }
+
+  // Region: worldwide | guatemala
+  const r = p.get('region');
+  if (r && ['worldwide','guatemala'].includes(r)) {
+    regionFilter = r;
+    document.querySelectorAll('#regionToggle .region-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.region === r));
+  }
+
+  // If any filter param was set, reposition pill sliders, re-apply filters, and move the map for region
+  if (f || ty || r) {
+    requestAnimationFrame(() => initAllPillSliders());
+    applyFilters();
+    if (r === 'guatemala' && typeof map !== 'undefined' && map) {
+      map.flyTo([14.9, -90.4], 7, { animate: true, duration: 1.2 });
+    }
+  }
+}
 
 // ===== CAROUSEL =====
 function getSlideIndex(id) { return carouselStates[id] || 0; }
@@ -1184,7 +1243,11 @@ function hashString(str) {
   for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
   return Math.abs(hash);
 }
-// Premiere status — built from Airtable "Premiere Status" field (slug → display label)
+// LEGACY FALLBACK premiere map (slug → full display label).
+// The live source is now the CMS "Premiere Status" field (read as data-premiere in
+// loadEventsFromCMS → ev.premiere). This map is only used by getPremiere() when an
+// event has no CMS premiere value yet, so nothing regresses while the CMS/sync catches
+// up. Once every event's Premiere Status is populated in Webflow, this can be removed.
 const premiereMap = {
   'sheffield-docfest': 'World Premiere',
   'woods-hole-film-festival': 'US Premiere',
@@ -1235,8 +1298,15 @@ const premiereMap = {
   'boulder-international-film-festival': 'Boulder Premiere',
   'ashland-independent-film-festival': 'Southern Oregon Premiere',
   'peronia-adolescente': 'Ciudad Peronia Premiere',
+  'galway-film-fleadh': 'Irish Premiere',
+  'maine-international-film-festival': 'Maine Premiere',
 };
-function getPremiere(id) { return premiereMap[id] || null; }
+function getPremiere(id) {
+  // Prefer the CMS-driven value (from data-premiere); fall back to the legacy map.
+  const ev = events.find(e => e.id === id);
+  if (ev && ev.premiere) return ev.premiere;
+  return premiereMap[id] || null;
+}
 
 // Q&A lookup: eventId|venue → type ('in-person' or 'virtual')
 const qaMap = {
