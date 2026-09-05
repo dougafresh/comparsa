@@ -630,6 +630,7 @@
   .popup-screenings { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 6px; }
   .popup-screening-row { font-size: 11px; color: var(--mid); padding: 2px 0; display: flex; gap: 6px; }
   .popup-screening-row strong { color: var(--dark); font-weight: 600; }
+  .popup-screening-row.popup-other-venues { font-style: italic; opacity: 0.75; }
   .popup-link { font-size: 12px; font-weight: 600; display: inline-block; margin-top: 6px; }
   .popup-link.upcoming { color: var(--brand-coral); }
   .popup-link.past { color: var(--brand-teal); }
