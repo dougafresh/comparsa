@@ -396,6 +396,29 @@
   .award-badge.audience .award-icon { color: var(--brand-red); }
   .award-badge.impact .award-icon { color: var(--brand-orange); }
 
+  /* Multiple awards per event stack down from the top-left corner. */
+  .award-badge-stack {
+    position: absolute; top: 8px; left: 8px; z-index: 5;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+    max-width: calc(100% - 16px); pointer-events: none;
+  }
+  .award-badge-stack .award-badge {
+    position: static; top: auto; left: auto; max-width: 100%;
+  }
+  .award-badge-stack .award-badge span:last-child {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* Nominations / runners-up: outline star, quieter than a win. */
+  .award-badge.mention { font-weight: 600; color: var(--mid); background: rgba(255,255,255,0.82); }
+  .award-badge.mention .award-icon { color: var(--mid); }
+  /* Several awards: show one at a time, cross-fading (driven by rotateAwardBadges). */
+  .award-badge-stack.rotate { display: block; width: calc(100% - 16px); min-height: 26px; }
+  .award-badge-stack.rotate .award-badge {
+    position: absolute; top: 0; left: 0; opacity: 0; max-width: 58%;
+    transition: opacity 0.6s ease; white-space: nowrap;
+  }
+  .award-badge-stack.rotate .award-badge.active { opacity: 1; }
+
   /* === Q&A TAG === */
   .qa-tag {
     display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 600;
@@ -640,6 +663,13 @@
     color: var(--dark); margin-bottom: 6px;
   }
   .popup-award-badge svg { width: 12px; height: 12px; }
+  .popup-award-stack { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .popup-award-stack .popup-award-badge { margin-bottom: 0; }
+  .popup-award-badge.jury svg { color: #d4a017; }
+  .popup-award-badge.audience svg { color: var(--brand-red); }
+  .popup-award-badge.impact svg { color: var(--brand-orange); }
+  .popup-award-badge.mention { color: var(--mid); }
+  .popup-award-badge.mention svg { color: var(--mid); }
 
   /* MAP CARD PANEL (for map-only mode) — Airbnb-style near-marker popup */
   .map-card-panel {
