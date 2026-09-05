@@ -2240,6 +2240,8 @@ document.addEventListener('keydown', e => {
 // and Seoul — wide world view so every pin is visible on load.
 const DEFAULT_MAP_BOUNDS = [[-35, -150], [62, 155]];
 const DEFAULT_FIT_OPTIONS = { padding: [12, 12] };
+// Labels/leader lines temporarily hidden under an open popup or card panel.
+let popupHiddenLabels = [], popupHiddenLines = [];
 
 // ===== OCEAN LAYER =====
 // Voyager's water is light blue; we want deep navy. A CSS tint can't darken water
@@ -2252,7 +2254,26 @@ const OCEAN_SRC = {
   coarse: 'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_land.geojson',
   fine:   'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_land.geojson'
 };
+// Big lakes (Great Lakes, Caspian, Victoria…) are land in the file above, so
+// they'd stay tile-blue; fill them with the same navy.
+const LAKES_SRC = {
+  coarse: 'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_lakes.geojson',
+  fine:   'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_lakes.geojson'
+};
 let oceanLayer = null, oceanRenderer = null, oceanLevel = 0;
+let lakesLayer = null, lakesLevel = 0;
+function buildLakesLayer(geojson) {
+  const polys = [];
+  (geojson.features || []).forEach(function(f) {
+    const g = f.geometry; if (!g) return;
+    const parts = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    parts.forEach(function(p) { polys.push(p.map(function(ring) { return ring.map(function(c) { return [c[1], c[0]]; }); })); });
+  });
+  return L.polygon(polys, {
+    renderer: oceanRenderer, pane: 'ocean', stroke: false, interactive: false,
+    fillColor: OCEAN_COLOR, fillOpacity: oceanOpacityForZoom(map.getZoom()), fillRule: 'evenodd'
+  });
+}
 function oceanOpacityForZoom(z) { return z <= 6 ? 1 : z <= 7 ? 0.7 : z <= 8 ? 0.4 : 0.15; }
 function buildOceanLayer(geojson) {
   // Land exterior rings become holes in a world-sized rectangle. Lakes (inner
@@ -2287,15 +2308,27 @@ function initOceanLayer() {
     if (oceanLayer) map.removeLayer(oceanLayer);
     oceanLayer = next;
   }
-  function load(url, level) {
-    fetch(url).then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
-      .then(function(gj) { swap(gj, level); })
-      .catch(function(e) { console.warn('Explorer: ocean layer failed to load', url, e); });
+  function swapLakes(gj, level) {
+    if (level < lakesLevel) return;
+    lakesLevel = level;
+    const next = buildLakesLayer(gj);
+    next.addTo(map);
+    if (lakesLayer) map.removeLayer(lakesLayer);
+    lakesLayer = next;
   }
-  load(OCEAN_SRC.coarse, 1);
-  load(OCEAN_SRC.fine, 2);
+  function load(url, level, fn) {
+    fetch(url).then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function(gj) { fn(gj, level); })
+      .catch(function(e) { console.warn('Explorer: water layer failed to load', url, e); });
+  }
+  load(OCEAN_SRC.coarse, 1, swap);
+  load(OCEAN_SRC.fine, 2, swap);
+  load(LAKES_SRC.coarse, 1, swapLakes);
+  load(LAKES_SRC.fine, 2, swapLakes);
   map.on('zoomend', function() {
-    if (oceanLayer) oceanLayer.setStyle({ fillOpacity: oceanOpacityForZoom(map.getZoom()) });
+    const o = oceanOpacityForZoom(map.getZoom());
+    if (oceanLayer) oceanLayer.setStyle({ fillOpacity: o });
+    if (lakesLayer) lakesLayer.setStyle({ fillOpacity: o });
   });
 }
 
@@ -2352,7 +2385,7 @@ function initMap() {
   }
 
   // CartoDB Voyager (no labels) — warm, colorful base; our custom overlays provide screening-city labels
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png?key=cb1_2nbn_1_c3a7487872d61ab0c4fbb5ae', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
     subdomains: 'abcd',
     maxZoom: 19
@@ -2451,7 +2484,11 @@ function initMap() {
   // Track popup open state so list-hover labels don't appear on top
   window._mapPopupOpen = false;
   // Hide labels that overlap with an open popup
-  let popupHiddenLabels = [], popupHiddenLines = [];
+  // popupHiddenLabels / popupHiddenLines are module-level (see MAP constants):
+  // closeMapCardPanel() and hideLabelsUnderPanel() live outside initMap and
+  // used to throw ReferenceError here — which is why clicking a pin in map
+  // view never opened the card panel, and why Reset Map / view switches
+  // silently aborted halfway.
   map.on('popupopen', (e) => {
     window._mapPopupOpen = true;
     document.getElementById('map')?.classList.add('map-popup-open');
