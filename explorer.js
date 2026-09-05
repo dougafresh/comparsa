@@ -11,6 +11,33 @@ const MAILCHIMP_CONFIG = {
 
 // ===== LAUREL SVG =====
 const laurelIcon = `<span class="award-icon" style="display:inline-flex;align-items:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></span>`;
+// Outline star for recognitions that aren't wins (nominee, runner-up, longlist).
+const MENTION_STAR_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+const mentionIcon = `<span class="award-icon" style="display:inline-flex;align-items:center;">${MENTION_STAR_SVG}</span>`;
+const MENTION_RE = /^(Nominee|Nominated|Runner-up|Runner up|Longlisted|Longlist|Shortlisted|Finalist|Honou?rable Mention)\b/i;
+function isMention(label) { return MENTION_RE.test(String(label || '').trim()); }
+// Events with several awards show one badge at a time and rotate through them
+// (a stack of three pills hid the hero photo). One global ticker drives every
+// stack currently in the DOM, so re-rendered cards need no re-binding.
+const AWARD_ROTATE_MS = 2000;
+function rotateAwardBadges() {
+  document.querySelectorAll('.award-badge-stack.rotate').forEach(function(stack) {
+    const badges = stack.querySelectorAll('.award-badge');
+    if (badges.length < 2) return;
+    let idx = -1;
+    badges.forEach(function(b, i) { if (b.classList.contains('active')) idx = i; });
+    const next = badges[(idx + 1) % badges.length];
+    badges.forEach(function(b) {
+      if (b.classList.contains('active')) {
+        // slide the old one out the top, then park it below again once hidden
+        b.classList.remove('active'); b.classList.add('leaving');
+        setTimeout(function() { b.classList.remove('leaving'); }, 500);
+      }
+    });
+    next.classList.add('active');
+  });
+}
+if (!window._awardRotateTimer) window._awardRotateTimer = setInterval(rotateAwardBadges, AWARD_ROTATE_MS);
 
 // ===== i18n SYSTEM =====
 const translations = {
@@ -1018,11 +1045,13 @@ function awardList(evId, fallbackKey) {
   if (ev && ev.awards && ev.awards.length) {
     list = ev.awards.map(function(a) {
       const cls = awardClass(a.key || a.name);
-      return { cls: cls, label: (a.name || '').trim() || generic[cls] || '' };
+      const label = (a.name || '').trim() || generic[cls] || '';
+      return { cls: cls, label: label, mention: isMention(label) };
     });
   } else if (fallbackKey) {
     const cls = awardClass(fallbackKey);
-    list = [{ cls: cls, label: awardLabel(fallbackKey, evId) }];
+    const label = awardLabel(fallbackKey, evId);
+    list = [{ cls: cls, label: label, mention: isMention(label) }];
   } else {
     return [];
   }
@@ -1037,8 +1066,9 @@ function awardList(evId, fallbackKey) {
 function buildAwardBadge(award, evId) {
   const list = awardList(evId, award);
   if (!list.length) return '';
-  return '<div class="award-badge-stack">' + list.map(function(a) {
-    return `<div class="award-badge ${a.cls}">${laurelIcon}<span>${a.label}</span></div>`;
+  const rotate = list.length > 1;
+  return '<div class="award-badge-stack' + (rotate ? ' rotate' : '') + '">' + list.map(function(a, i) {
+    return `<div class="award-badge ${a.cls}${a.mention ? ' mention' : ''}${rotate && i === 0 ? ' active' : ''}">${a.mention ? mentionIcon : laurelIcon}<span>${a.label}</span></div>`;
   }).join('') + '</div>';
 }
 
@@ -1052,8 +1082,9 @@ function buildPopupAwardBadge(award, evId) {
   const list = awardList(evId, award);
   if (!list.length) return '';
   const icon = '<span style="display:inline-flex;align-items:center;margin-right:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></span>';
+  const starIcon = '<span style="display:inline-flex;align-items:center;margin-right:4px;">' + MENTION_STAR_SVG.replace('width="14" height="14"', 'width="13" height="13"') + '</span>';
   return '<div class="popup-award-stack">' + list.map(function(a) {
-    return `<div class="popup-award-badge ${a.cls}">${icon}${a.label}</div>`;
+    return `<div class="popup-award-badge ${a.cls}${a.mention ? ' mention' : ''}">${a.mention ? starIcon : icon}${a.label}</div>`;
   }).join('') + '</div>';
 }
 
