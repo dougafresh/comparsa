@@ -40,6 +40,7 @@ const translations = {
     onlineDate: 'Online {date}',
     watchLive: 'Watch live', liveStream: 'Live stream',
     availableWindow: 'Available {range}', online: 'Online',
+    otherVenues: '+{n} more at other venues',
     // Countdown
     // screeningRecently removed — past screening dates show no badge
     screeningToday: 'Screening today!',
@@ -110,6 +111,7 @@ const translations = {
     onlineDate: 'En línea {date}',
     watchLive: 'Ver en vivo', liveStream: 'Transmisión en vivo',
     availableWindow: 'Disponible {range}', online: 'En línea',
+    otherVenues: '+{n} más en otras sedes',
     // Countdown
     // screeningRecently removed
     screeningToday: '¡Proyección hoy!',
@@ -567,7 +569,14 @@ function loadEventsFromCMS() {
         geoLabel: (sd.geoLabel || '').trim() || null,
         workshop: sd.workshop === 'true' || sd.workshop === 'True' ? true : undefined,
         qa: sd.qa === 'true' || sd.qa === 'True' ? true : undefined,
-        encore: sd.encore === 'true' || sd.encore === 'True' ? true : undefined
+        encore: sd.encore === 'true' || sd.encore === 'True' ? true : undefined,
+        // Optional per-screening pin (satellite venues / sedes alternas).
+        // When lat+lng are set this screening gets its OWN map marker;
+        // city (optional) labels that marker and, when it differs from the
+        // event's city, is appended to the venue in showtime rows.
+        city: (sd.city || '').trim() || null,
+        lat: parseFloat(sd.lat) || 0,
+        lng: parseFloat(sd.lng) || 0
       };
     });
     // Screening data comes from CMS only. If no screenings found, the event
@@ -748,10 +757,61 @@ events.forEach(ev => {
     ev.screenings.sort((a, b) => {
       const da = a.dateISO ? new Date(a.dateISO).getTime() : 0;
       const db = b.dateISO ? new Date(b.dateISO).getTime() : 0;
-      return da - db;
+      if (da !== db) return da - db;
+      return (a.time || '').localeCompare(b.time || '');
     });
   }
 });
+
+// ===== PIN SITES =====
+// One event can now put several pins on the map. A "pin site" is a place we
+// draw a marker for: by default the event's own City coordinates; but any
+// in-person screening that carries its own lat/lng (CMS Latitude/Longitude,
+// synced from Airtable) becomes a site of its own, grouped by coordinates.
+// Screenings WITHOUT coordinates stay on the event's pin. Every site opens a
+// popup for the same event, listing only that site's showtimes.
+function buildPinSites(ev) {
+  const sites = [];
+  const byKey = {};
+  const onEventPin = [];
+  ev.screenings.forEach(s => {
+    if (s.type === 'in-person' && s.lat && s.lng) {
+      const k = s.lat.toFixed(4) + ',' + s.lng.toFixed(4);
+      if (!byKey[k]) {
+        byKey[k] = { lat: s.lat, lng: s.lng, city: s.city || ev.city, screenings: [], own: true, primary: false };
+        sites.push(byKey[k]);
+      }
+      byKey[k].screenings.push(s);
+    } else {
+      onEventPin.push(s);
+    }
+  });
+  const hasEventCoords = !(ev.lat === 0 && ev.lng === 0);
+  if (sites.length === 0) {
+    // Classic case: one pin at the event's city, all screenings on it.
+    if (hasEventCoords) sites.push({ lat: ev.lat, lng: ev.lng, city: ev.city, screenings: ev.screenings, own: false, primary: true });
+    return sites;
+  }
+  if (hasEventCoords && onEventPin.some(s => s.type === 'in-person')) {
+    // Mixed: some screenings have venue pins, the rest sit on the event pin.
+    sites.unshift({ lat: ev.lat, lng: ev.lng, city: ev.city, screenings: onEventPin, own: false, primary: true });
+  } else if (onEventPin.length) {
+    // Only online rows are left over — show them on the first venue pin.
+    sites[0].screenings = sites[0].screenings.concat(onEventPin);
+  }
+  sites[0].primary = true;
+  // An event with no coordinates of its own borrows its first venue pin so
+  // distance sorting / "online only" checks treat it as a physical event.
+  if (!hasEventCoords) { ev.lat = sites[0].lat; ev.lng = sites[0].lng; }
+  return sites;
+}
+events.forEach(ev => { ev.pinSites = buildPinSites(ev); });
+
+// Distance from a point to an event = distance to its NEAREST pin site.
+function eventDistance(lat, lng, ev) {
+  const sites = ev.pinSites && ev.pinSites.length ? ev.pinSites : [{ lat: ev.lat, lng: ev.lng }];
+  return Math.min.apply(null, sites.map(st => haversineDistance(lat, lng, st.lat, st.lng)));
+}
 
 // PRESS ARTICLES (can also be moved to CMS later)
 
@@ -1387,7 +1447,7 @@ function formatScreeningRowContent(s, ev) {
   const parts = [`<strong>${dateStr}</strong>`];
   var ft2 = formatTime(s.time);
   if (!isPast && ft2) parts.push(ft2);
-  if (s.venue) parts.push(s.venue);
+  if (s.venue) parts.push(s.city && s.city !== ev.city ? `${s.venue}, ${s.city}` : s.venue);
   return parts.join(' · ') + buildQATag(ev.id, s.venue, s.workshop);
 }
 
@@ -1831,6 +1891,7 @@ function findMatchingEvents(q) {
     ev.country.toLowerCase().includes(lq) ||
     ev.screenings.some(s =>
       (s.venue && s.venue.toLowerCase().includes(lq)) ||
+      (s.city && s.city.toLowerCase().includes(lq)) ||
       (s.geoLabel && s.geoLabel.toLowerCase().includes(lq))
     )
   ).slice(0, 5);
@@ -2293,7 +2354,7 @@ function positionLabels() {
     const prio = cityPriority[shortCity] || 2;
     if (prio < minPrio) return;
 
-    const pt = map.latLngToContainerPoint([m.ev.lat, m.ev.lng]);
+    const pt = map.latLngToContainerPoint([m.lat, m.lng]);
     labels.push({
       text: shortCity,
       anchorX: pt.x,
@@ -2363,7 +2424,7 @@ function positionLabels() {
   // Check labels against all dot positions
   const dotPositions = [];
   leafletMarkers.forEach(m => {
-    const pt = map.latLngToContainerPoint([m.ev.lat, m.ev.lng]);
+    const pt = map.latLngToContainerPoint([m.lat, m.lng]);
     dotPositions.push({ x: pt.x, y: pt.y });
   });
 
@@ -2451,7 +2512,7 @@ function showHoverLabel(evId) {
   if (!m) return;
   const city = m.cityShort;
 
-  const pt = map.latLngToContainerPoint([m.ev.lat, m.ev.lng]);
+  const pt = map.latLngToContainerPoint([m.lat, m.lng]);
   const lineLen = BASE_LINE_LEN;
   const centerY = pt.y + LINE_DY * lineLen;
   const x = pt.x + LINE_DX * lineLen + 3;
@@ -2529,15 +2590,15 @@ function onCityLabelClick(cityName) {
   if (cityMarkers.length === 0) return;
 
   // Compute city center for proximity sort
-  const cityLat = cityMarkers.reduce((s, m) => s + m.ev.lat, 0) / cityMarkers.length;
-  const cityLng = cityMarkers.reduce((s, m) => s + m.ev.lng, 0) / cityMarkers.length;
+  const cityLat = cityMarkers.reduce((s, m) => s + m.lat, 0) / cityMarkers.length;
+  const cityLng = cityMarkers.reduce((s, m) => s + m.lng, 0) / cityMarkers.length;
 
   // Zoom to the city
   if (cityMarkers.length === 1) {
-    map.setView([cityMarkers[0].ev.lat, cityMarkers[0].ev.lng], 8, { animate: true });
+    map.setView([cityMarkers[0].lat, cityMarkers[0].lng], 8, { animate: true });
     cityMarkers[0].marker.openPopup();
   } else {
-    const bounds = L.latLngBounds(cityMarkers.map(m => [m.ev.lat, m.ev.lng]));
+    const bounds = L.latLngBounds(cityMarkers.map(m => [m.lat, m.lng]));
     map.fitBounds(bounds.pad(0.5), { animate: true, maxZoom: 10 });
   }
 
@@ -2647,20 +2708,31 @@ function buildPopupHero(ev) {
 function addMapMarkers() {
   leafletMarkers.forEach(m => m.marker.remove()); leafletMarkers = [];
   events.forEach(ev => {
-    if (ev.lat===0 && ev.lng===0) return;
     if (!matchesFilters(ev)) return;
-    const cityShort = getShortCity(ev.city);
+    const sites = ev.pinSites || [];
+    if (!sites.length) return;
+    const multiSite = sites.length > 1;
     const linkLabel = ev.upcoming ? t('getTickets') : t('visitWebsite');
     const linkClass = ev.upcoming ? 'upcoming' : 'past';
     const pressLink = !ev.upcoming && ev.press ? `<a href="#" class="popup-link past" style="margin-left:10px;color:var(--mid);font-size:11px;" onclick="openPressPopover('${ev.id}', this); event.preventDefault();">${t('pressLink')} \u2192</a>` : '';
+    sites.forEach(site => {
+    const cityShort = getShortCity(site.city || ev.city);
+    // Popup lists this site's showtimes; a multi-venue event notes the rest.
+    const siteScreenings = multiSite ? site.screenings : ev.screenings;
     let popupDateInfo = '';
-    if (ev.screenings.length > 0) {
-      popupDateInfo = `<div class="popup-screenings">${ev.screenings.map(s => `<div class="popup-screening-row"><span>${formatScreeningRowContent(s, ev)}</span></div>`).join('')}</div>`;
+    if (siteScreenings.length > 0) {
+      const others = ev.screenings.length - siteScreenings.length;
+      const othersRow = multiSite && others > 0 ? `<div class="popup-screening-row popup-other-venues"><span>${t('otherVenues', { n: others })}</span></div>` : '';
+      // Rows on a venue pin don't repeat the city — the location line already names it.
+      const rowEv = site.own && site.city ? Object.assign({}, ev, { city: site.city }) : ev;
+      popupDateInfo = `<div class="popup-screenings">${siteScreenings.map(s => `<div class="popup-screening-row"><span>${formatScreeningRowContent(s, rowEv)}</span></div>`).join('')}${othersRow}</div>`;
     } else {
       popupDateInfo = `<div class="popup-meta">${ev.websiteDates || ev.dateRange}</div>`;
     }
-    const popup = `${buildPopupHero(ev)}<div class="popup-body">${buildPopupAwardBadge(ev.award, ev.id)}<div class="popup-title">${ev.name}</div>${buildPremiereBadge(ev.id)}<div class="popup-meta">${formatLocation(ev)}</div>${popupDateInfo}${ev.link!=='#'?`<a href="${ev.link}" target="_blank" class="popup-link ${linkClass}">${linkLabel} \u2192</a>`:''}${pressLink}</div>`;
-    const marker = L.marker([ev.lat,ev.lng],{icon:markerIcon(ev.upcoming,false)}).addTo(map);
+    // Location line: the site's own city when it differs from the event's.
+    const locLine = (site.own && site.city && site.city !== ev.city) ? formatLocation({ city: site.city, state: null, country: ev.country }) : formatLocation(ev);
+    const popup = `${buildPopupHero(ev)}<div class="popup-body">${buildPopupAwardBadge(ev.award, ev.id)}<div class="popup-title">${ev.name}</div>${buildPremiereBadge(ev.id)}<div class="popup-meta">${locLine}</div>${popupDateInfo}${ev.link!=='#'?`<a href="${ev.link}" target="_blank" class="popup-link ${linkClass}">${linkLabel} \u2192</a>`:''}${pressLink}</div>`;
+    const marker = L.marker([site.lat,site.lng],{icon:markerIcon(ev.upcoming,false)}).addTo(map);
     marker.bindPopup(popup,{offset:[0,-4],maxWidth:280,minWidth:280,className:'custom-popup'});
     marker.on('mouseover',()=>{
       const el = marker.getElement();
@@ -2680,18 +2752,21 @@ function addMapMarkers() {
       if (currentView === 'map') {
         marker.closePopup();
         closeMapCardPanel();
-        map.flyTo([ev.lat, ev.lng], 7, { duration: 1.0 });
+        map.flyTo([site.lat, site.lng], 7, { duration: 1.0 });
         map.once('moveend', () => {
           showMapCardPanel(ev, marker);
         });
       }
       else {
         // Hybrid: zoom in and scroll to card
-        if (map.getZoom() < 7) map.flyTo([ev.lat, ev.lng], 7, { duration: 1.0 });
+        if (map.getZoom() < 7) map.flyTo([site.lat, site.lng], 7, { duration: 1.0 });
         const c=document.querySelector(`.event-card[data-id="${ev.id}"]`);if(c)c.scrollIntoView({behavior:'smooth',block:'nearest'});
       }
     });
-    leafletMarkers.push({marker,id:ev.id,ev,cityShort});
+    // Several markers may share one event id (multi-venue events). The
+    // primary site is pushed first so `leafletMarkers.find(id)` gets it.
+    leafletMarkers.push({marker,id:ev.id,ev,cityShort,lat:site.lat,lng:site.lng,site});
+    });
   });
   positionLabels();
 }
@@ -2885,7 +2960,7 @@ function sortEvents(eventsToSort) {
   } else if (sortMode === 'distance' && proximityLat !== null && proximityLng !== null) {
     const bySorted = sorted.map(e => ({
       ...e,
-      distance: haversineDistance(proximityLat, proximityLng, e.lat, e.lng)
+      distance: eventDistance(proximityLat, proximityLng, e)
     })).sort((a, b) => a.distance - b.distance);
     return [...bySorted, ...online];
   }
@@ -2955,6 +3030,13 @@ function renderList() {
 function handleCardClick(id) {
   const ev = events.find(e=>e.id===id);
   if(!ev) return;
+  if(ev.lat!==0 && map && ev.pinSites && ev.pinSites.length > 1) {
+    // Multi-venue event: frame every pin instead of flying to one of them.
+    const bounds = L.latLngBounds(ev.pinSites.map(st => [st.lat, st.lng]));
+    map.flyToBounds(bounds.pad(0.35), { duration: 0.8, maxZoom: 9 });
+    map.once('moveend', () => highlightMarker(id));
+    return;
+  }
   if(ev.lat!==0 && map) {
     // Zoom to a comfortable city level, but don't zoom out if already closer
     const targetZoom = Math.max(map.getZoom(), 7);
@@ -2978,7 +3060,7 @@ function matchesFilters(ev) {
   if(typeFilter!=='all' && ev.type!==typeFilter) return false;
   if(searchQuery){
     const q=searchQuery.toLowerCase();
-    const textMatch = `${ev.name} ${ev.city} ${ev.country} ${ev.screenings.map(s => `${s.venue||''} ${s.geoLabel||''}`).join(' ')}`.toLowerCase().includes(q);
+    const textMatch = `${ev.name} ${ev.city} ${ev.country} ${ev.screenings.map(s => `${s.venue||''} ${s.city||''} ${s.geoLabel||''}`).join(' ')}`.toLowerCase().includes(q);
     // Also check if online event covers the searched region
     const onlineMatch = ev.online ? onlineCoversRegion(ev.online, q) : false;
     if(!textMatch && !onlineMatch) return false;
@@ -2998,8 +3080,9 @@ function filterByMapBounds() {
   const allMatching = events.filter(ev => matchesFilters(ev));
   const onlineEvents = allMatching.filter(ev => ev.lat===0 && ev.lng===0);
   const physical = allMatching.filter(ev => ev.lat!==0 || ev.lng!==0);
-  const physicalInBounds = physical.filter(ev => b.contains([ev.lat,ev.lng]));
-  elsewhereEvents = physical.filter(ev => !b.contains([ev.lat,ev.lng]));
+  const inView = ev => (ev.pinSites && ev.pinSites.length ? ev.pinSites : [{lat:ev.lat,lng:ev.lng}]).some(st => b.contains([st.lat, st.lng]));
+  const physicalInBounds = physical.filter(inView);
+  elsewhereEvents = physical.filter(ev => !inView(ev));
   filteredEvents = [...physicalInBounds, ...onlineEvents];
   // Show/hide map overlay when no physical pins in view
   updateMapEmptyOverlay(physicalInBounds.length === 0 && allMatching.some(ev => ev.lat !== 0 || ev.lng !== 0));
@@ -3245,7 +3328,7 @@ function showNotifyBanner(cityName) {
     // Count nearby results (within ~160km / 100mi)
     const nearbyCount = (proximityLat && proximityLng) ? events.filter(ev => {
       if (ev.lat === 0 && ev.lng === 0) return false;
-      const d = haversineDistance(proximityLat, proximityLng, ev.lat, ev.lng);
+      const d = eventDistance(proximityLat, proximityLng, ev);
       return d < 160;
     }).length : 0;
 
