@@ -19,7 +19,7 @@ function isMention(label) { return MENTION_RE.test(String(label || '').trim()); 
 // Events with several awards show one badge at a time and rotate through them
 // (a stack of three pills hid the hero photo). One global ticker drives every
 // stack currently in the DOM, so re-rendered cards need no re-binding.
-const AWARD_ROTATE_MS = 2000;
+const AWARD_ROTATE_MS = 3000;
 function rotateAwardBadges() {
   document.querySelectorAll('.award-badge-stack.rotate').forEach(function(stack) {
     const badges = stack.querySelectorAll('.award-badge');
@@ -646,7 +646,7 @@ function loadEventsFromCMS() {
     // plain <img> tags inside .cms-event-images (in case someone used an
     // Image element bound to a single-image field instead).
     const imgContainer = scope.querySelector('.cms-event-images');
-    let imgUrls = [];
+    let imgUrls = [], imgSrcsets = {};
     if (imgContainer) {
       const wfJson = imgContainer.querySelector('script.w-json');
       if (wfJson) {
@@ -665,6 +665,13 @@ function loadEventsFromCMS() {
           .map(i => i.src)
           .filter(Boolean);
       }
+      // Webflow generates -p-500…3200 variants of every upload and lists them in
+      // the hidden <img srcset>. Keep them per URL so cards can load a ~100 KB
+      // version instead of the multi-megabyte original.
+      imgContainer.querySelectorAll('img').forEach(i => {
+        const ss = i.getAttribute('srcset');
+        if (i.src && ss) imgSrcsets[i.src] = ss;
+      });
     }
     // Parse nested multi-reference Awards: <span class="cms-award" data-key="audience-award"></span>
     // (data-key should be bound to the Award's Slug; data-name is the display name fallback)
@@ -752,6 +759,7 @@ function loadEventsFromCMS() {
         return undefined;
       })(),
       eventImages: imgUrls.length > 0 ? imgUrls : undefined,
+      eventImageSrcsets: imgSrcsets,
       eventStatus: (function() {
         const cmsStatus = (d.eventStatus || '').trim().toLowerCase();
         if (cmsStatus) return cmsStatus;
@@ -1688,11 +1696,19 @@ function renderLogo(src, alt, extraStyle) {
   return `<img class="event-logo" src="${src}" alt="${alt}"${style}>`;
 }
 
-function buildCarouselSlides(ev) {
+// Cards are ~30vw wide on desktop and full-width on mobile; the lightbox is ~95vw.
+// With `sizes` the browser picks the smallest Webflow variant that still looks sharp.
+const CARD_IMG_SIZES = '(max-width: 1023px) 100vw, 26vw';
+function heroImgAttrs(ev, url, sizes) {
+  const ss = ev && ev.eventImageSrcsets && ev.eventImageSrcsets[url];
+  return ss ? ` srcset="${ss}" sizes="${sizes || CARD_IMG_SIZES}"` : '';
+}
+
+function buildCarouselSlides(ev, sizes) {
   // Multiple event images: photo carousel. If logo exists, it overlays the first photo.
   if (ev.eventImages && ev.eventImages.length > 0) {
     let slides = ev.eventImages.map((url, i) => `<div class="carousel-slide" style="background:#1a1611;">
-      <img src="${url}" alt="${ev.name} — photo ${i + 1}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy"
+      <img src="${url}"${heroImgAttrs(ev, url, sizes)} alt="${ev.name} — photo ${i + 1}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy"
         onerror="this.style.display='none';this.parentElement.style.background='${getHeroGradient(ev.id, ev.type)}'">
     </div>`).join('');
     return slides;
@@ -1742,7 +1758,7 @@ function buildCarousel(ev) {
     // Logo + event images: show first photo with logo overlay
     if (ev.logo && ev.eventImages && ev.eventImages.length > 0) {
       return `<div class="card-hero-static" style="background:#1a1611;padding:0;position:relative;cursor:pointer;" onclick="handleCardClick('${ev.id}')">
-        <img src="${ev.eventImages[0]}" alt="${ev.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">
+        <img src="${ev.eventImages[0]}"${heroImgAttrs(ev, ev.eventImages[0], '320px')} alt="${ev.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">
         <div class="logo-overlay">
           <div class="logo-overlay-scrim"></div>
           ${renderLogo(ev.logo, ev.name + ' logo')}
@@ -1754,7 +1770,7 @@ function buildCarousel(ev) {
     // Event images but no logo: show first photo with event name text overlay
     if (!ev.logo && ev.eventImages && ev.eventImages.length > 0) {
       return `<div class="card-hero-static" style="background:#1a1611;padding:0;position:relative;cursor:pointer;" onclick="handleCardClick('${ev.id}')">
-        <img src="${ev.eventImages[0]}" alt="${ev.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">
+        <img src="${ev.eventImages[0]}"${heroImgAttrs(ev, ev.eventImages[0], '320px')} alt="${ev.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">
         <div class="logo-overlay">
           <div class="logo-overlay-scrim"></div>
           <div class="hero-event-name" style="position:relative;z-index:2;">${ev.name}</div>
@@ -1827,7 +1843,7 @@ function openLightbox(evId, e) {
 
   const content = document.getElementById('lightboxContent');
   content.innerHTML = `
-    <div class="lightbox-track" id="lightboxTrack" style="transform:translateX(-${lightboxSlideIdx * 100}%)">${buildCarouselSlides(ev)}</div>
+    <div class="lightbox-track" id="lightboxTrack" style="transform:translateX(-${lightboxSlideIdx * 100}%)">${buildCarouselSlides(ev, '95vw')}</div>
     <button class="lightbox-arrow prev" onclick="lightboxNav(-1)">\u2039</button>
     <button class="lightbox-arrow next" onclick="lightboxNav(1)">\u203A</button>
     <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
@@ -2220,10 +2236,96 @@ document.addEventListener('keydown', e => {
 });
 
 // ===== MAP =====
-// Default framing: continental US (48 states) + Europe + North Africa (incl. Egypt),
-// with a hard cap east of ~40°E so we don't show large swaths of empty Asia.
+// Default framing: Anchorage (61N, -150W) through Australia's east coast (153E)
+// and Seoul — wide world view so every pin is visible on load.
 const DEFAULT_MAP_BOUNDS = [[-35, -150], [62, 155]];
 const DEFAULT_FIT_OPTIONS = { padding: [12, 12] };
+
+// ===== OCEAN LAYER =====
+// Voyager's water is light blue; we want deep navy. A CSS tint can't darken water
+// without darkening land, so the ocean is a real polygon: the whole world minus
+// Natural Earth land. 110m loads first (≈40 KB, instant), 50m replaces it for a
+// tighter coastline. It fades at city zoom, where a 50m coastline visibly drifts
+// from the tiles.
+const OCEAN_COLOR = '#0F3354';
+const OCEAN_SRC = {
+  coarse: 'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_land.geojson',
+  fine:   'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_land.geojson'
+};
+let oceanLayer = null, oceanRenderer = null, oceanLevel = 0;
+function oceanOpacityForZoom(z) { return z <= 6 ? 1 : z <= 7 ? 0.7 : z <= 8 ? 0.4 : 0.15; }
+function buildOceanLayer(geojson) {
+  // Land exterior rings become holes in a world-sized rectangle. Lakes (inner
+  // rings) are ignored — they stay whatever colour the tiles give them.
+  const holes = [];
+  (geojson.features || []).forEach(function(f) {
+    const g = f.geometry; if (!g) return;
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    polys.forEach(function(p) { if (p[0] && p[0].length > 3) holes.push(p[0].map(function(c) { return [c[1], c[0]]; })); });
+  });
+  // Three world copies so the navy continues past the antimeridian at low zoom.
+  const polygons = [-360, 0, 360].map(function(dx) {
+    const outer = [[-90, -180 + dx], [-90, 180 + dx], [90, 180 + dx], [90, -180 + dx]];
+    return [outer].concat(holes.map(function(h) { return dx ? h.map(function(ll) { return [ll[0], ll[1] + dx]; }) : h; }));
+  });
+  return L.polygon(polygons, {
+    renderer: oceanRenderer, pane: 'ocean', stroke: false, interactive: false,
+    fillColor: OCEAN_COLOR, fillOpacity: oceanOpacityForZoom(map.getZoom()), fillRule: 'evenodd'
+  });
+}
+function initOceanLayer() {
+  if (!map || typeof L === 'undefined' || !L.canvas) return;
+  const pane = map.createPane('ocean');
+  pane.style.zIndex = 250;            // above tiles (200), below overlays/markers
+  pane.style.pointerEvents = 'none';
+  oceanRenderer = L.canvas({ pane: 'ocean', padding: 0.5 });
+  function swap(gj, level) {
+    if (level < oceanLevel) return;   // never replace 50m with 110m
+    oceanLevel = level;
+    const next = buildOceanLayer(gj);
+    next.addTo(map);
+    if (oceanLayer) map.removeLayer(oceanLayer);
+    oceanLayer = next;
+  }
+  function load(url, level) {
+    fetch(url).then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function(gj) { swap(gj, level); })
+      .catch(function(e) { console.warn('Explorer: ocean layer failed to load', url, e); });
+  }
+  load(OCEAN_SRC.coarse, 1);
+  load(OCEAN_SRC.fine, 2);
+  map.on('zoomend', function() {
+    if (oceanLayer) oceanLayer.setStyle({ fillOpacity: oceanOpacityForZoom(map.getZoom()) });
+  });
+}
+
+// ===== MAP SIZE WATCH =====
+// Leaflet caches its container size; view switches animate the list panel's width,
+// so the map used to keep the old size (tiles covering two-thirds, world in the
+// corner). Re-measure whenever #map's box changes; while a map-view switch is in
+// flight, keep the world framed.
+let pendingMapRefit = false, mapResizeRaf = null;
+function refitMapToDefault(rebuildMarkers) {
+  if (!map) return;
+  map.fitBounds(DEFAULT_MAP_BOUNDS, Object.assign({}, DEFAULT_FIT_OPTIONS, { animate: false }));
+  if (rebuildMarkers) addMapMarkers();
+}
+function initMapResizeWatch() {
+  const el = document.getElementById('map');
+  if (!el || typeof ResizeObserver === 'undefined') return;
+  let last = { w: el.clientWidth, h: el.clientHeight };
+  new ResizeObserver(function() {
+    if (mapResizeRaf) cancelAnimationFrame(mapResizeRaf);
+    mapResizeRaf = requestAnimationFrame(function() {
+      mapResizeRaf = null;
+      const w = el.clientWidth, h = el.clientHeight;
+      if ((w === last.w && h === last.h) || !w || !h) return;
+      last = { w: w, h: h };
+      map.invalidateSize({ animate: false, pan: false });
+      if (pendingMapRefit) refitMapToDefault(false); else positionLabels();
+    });
+  }).observe(el);
+}
 
 function initMap() {
   // Seed an initial center/zoom as a safety fallback; fitBounds overrides it.
@@ -2250,17 +2352,14 @@ function initMap() {
   }
 
   // CartoDB Voyager (no labels) — warm, colorful base; our custom overlays provide screening-city labels
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png?key=cb1_2nbn_1_c3a7487872d61ab0c4fbb5ae', {
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
     subdomains: 'abcd',
     maxZoom: 19
   }).addTo(map);
 
-  // Ocean tint: multiply a deep navy over the tiles so light-blue water becomes dark
-  // while white/beige land stays almost unchanged.
-  const oceanOverlay = document.createElement('div');
-  oceanOverlay.className = 'ocean-tint-overlay';
-  map.getContainer().querySelector('.leaflet-map-pane').appendChild(oceanOverlay);
+  initOceanLayer();
+  initMapResizeWatch();
 
   initLabelOverlays();
   addMapMarkers();
@@ -2310,6 +2409,16 @@ function initMap() {
       setTimeout(() => { scrollZoomCooldown = false; }, 1200);
     }
   });
+  // Pins scale with zoom: small at world view, full size from country zoom.
+  function updatePinScale() {
+    const z = map.getZoom();
+    const s = Math.max(0.5, Math.min(1.15, 0.5 + (z - 2) * 0.125));
+    map.getContainer().style.setProperty('--pin-scale', s.toFixed(3));
+  }
+  updatePinScale();
+  map.on('zoom', updatePinScale);
+  map.on('zoomend', updatePinScale);
+
   // Hide labels during zoom animation, reposition after
   map.on('zoomstart', () => {
     if (labelLineOverlay) labelLineOverlay.classList.add('hidden');
@@ -2770,7 +2879,7 @@ function buildPopupHero(ev) {
     // Logo + event images: first photo as background with logo overlay
     if (ev.logo && ev.eventImages && ev.eventImages.length > 0) {
       return `<div style="width:280px;aspect-ratio:16/10;background:#1a1611;position:relative;overflow:hidden;">
-        <img src="${ev.eventImages[0]}" alt="${ev.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">
+        <img src="${ev.eventImages[0]}"${heroImgAttrs(ev, ev.eventImages[0], '320px')} alt="${ev.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">
         <div class="logo-overlay">
           <div class="logo-overlay-scrim"></div>
           ${renderLogo(ev.logo, ev.name + ' logo', 'width:55%;max-width:140px;')}
@@ -2781,7 +2890,7 @@ function buildPopupHero(ev) {
     // Event images but no logo: first photo with event name text overlay
     if (!ev.logo && ev.eventImages && ev.eventImages.length > 0) {
       return `<div style="width:280px;aspect-ratio:16/10;background:#1a1611;position:relative;overflow:hidden;">
-        <img src="${ev.eventImages[0]}" alt="${ev.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">
+        <img src="${ev.eventImages[0]}"${heroImgAttrs(ev, ev.eventImages[0], '320px')} alt="${ev.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;" loading="lazy">
         <div class="logo-overlay">
           <div class="logo-overlay-scrim"></div>
           <div class="hero-event-name" style="position:relative;z-index:2;">${ev.name}</div>
@@ -3225,11 +3334,13 @@ function updateResultCount(count) {
 
 // ===== VIEW =====
 function setView(view) {
-  currentView=view; showingCachedResults=false; document.getElementById('mainContent').className=`main view-${view}`;
+  currentView=view; showingCachedResults=false;
+  pendingMapRefit = (view === 'map');   // the ResizeObserver keeps the world framed while the list collapses
+  document.getElementById('mainContent').className=`main view-${view}`;
   document.querySelectorAll('.view-toggle').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
   closeMapCardPanel();
-  setTimeout(()=>{ if(map) { map.invalidateSize(); if(view==='map') { map.fitBounds(DEFAULT_MAP_BOUNDS, {...DEFAULT_FIT_OPTIONS, animate:false}); addMapMarkers(); } } if(view==='hybrid' || view==='map') filterByMapBounds(); else { filteredEvents=events.filter(matchesFilters); renderList(); } },350);
-  setTimeout(()=>{ if(map) map.invalidateSize(); },700);
+  setTimeout(()=>{ if(map) { map.invalidateSize({animate:false}); if(view==='map') refitMapToDefault(true); } if(view==='hybrid' || view==='map') filterByMapBounds(); else { filteredEvents=events.filter(matchesFilters); renderList(); } },350);
+  setTimeout(()=>{ if(map) { map.invalidateSize({animate:false}); if(view==='map' && pendingMapRefit) refitMapToDefault(false); pendingMapRefit=false; positionLabels(); } },700);
   const u=new URL(window.location); u.searchParams.set('view',currentView); window.history.replaceState({},'',u);
 }
 
