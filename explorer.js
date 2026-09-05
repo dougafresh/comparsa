@@ -2243,95 +2243,6 @@ const DEFAULT_FIT_OPTIONS = { padding: [12, 12] };
 // Labels/leader lines temporarily hidden under an open popup or card panel.
 let popupHiddenLabels = [], popupHiddenLines = [];
 
-// ===== OCEAN LAYER =====
-// Voyager's water is light blue; we want deep navy. A CSS tint can't darken water
-// without darkening land, so the ocean is a real polygon: the whole world minus
-// Natural Earth land. 110m loads first (≈40 KB, instant), 50m replaces it for a
-// tighter coastline. It fades at city zoom, where a 50m coastline visibly drifts
-// from the tiles.
-const OCEAN_COLOR = '#0F3354';
-const OCEAN_SRC = {
-  coarse: 'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_land.geojson',
-  fine:   'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_land.geojson'
-};
-// Big lakes (Great Lakes, Caspian, Victoria…) are land in the file above, so
-// they'd stay tile-blue; fill them with the same navy.
-const LAKES_SRC = {
-  coarse: 'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_lakes.geojson',
-  fine:   'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_lakes.geojson'
-};
-let oceanLayer = null, oceanRenderer = null, oceanLevel = 0;
-let lakesLayer = null, lakesLevel = 0;
-function buildLakesLayer(geojson) {
-  const polys = [];
-  (geojson.features || []).forEach(function(f) {
-    const g = f.geometry; if (!g) return;
-    const parts = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
-    parts.forEach(function(p) { polys.push(p.map(function(ring) { return ring.map(function(c) { return [c[1], c[0]]; }); })); });
-  });
-  return L.polygon(polys, {
-    renderer: oceanRenderer, pane: 'ocean', stroke: false, interactive: false,
-    fillColor: OCEAN_COLOR, fillOpacity: oceanOpacityForZoom(map.getZoom()), fillRule: 'evenodd'
-  });
-}
-function oceanOpacityForZoom(z) { return z <= 6 ? 1 : z <= 7 ? 0.7 : z <= 8 ? 0.4 : 0.15; }
-function buildOceanLayer(geojson) {
-  // Land exterior rings become holes in a world-sized rectangle. Lakes (inner
-  // rings) are ignored — they stay whatever colour the tiles give them.
-  const holes = [];
-  (geojson.features || []).forEach(function(f) {
-    const g = f.geometry; if (!g) return;
-    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
-    polys.forEach(function(p) { if (p[0] && p[0].length > 3) holes.push(p[0].map(function(c) { return [c[1], c[0]]; })); });
-  });
-  // Three world copies so the navy continues past the antimeridian at low zoom.
-  const polygons = [-360, 0, 360].map(function(dx) {
-    const outer = [[-90, -180 + dx], [-90, 180 + dx], [90, 180 + dx], [90, -180 + dx]];
-    return [outer].concat(holes.map(function(h) { return dx ? h.map(function(ll) { return [ll[0], ll[1] + dx]; }) : h; }));
-  });
-  return L.polygon(polygons, {
-    renderer: oceanRenderer, pane: 'ocean', stroke: false, interactive: false,
-    fillColor: OCEAN_COLOR, fillOpacity: oceanOpacityForZoom(map.getZoom()), fillRule: 'evenodd'
-  });
-}
-function initOceanLayer() {
-  if (!map || typeof L === 'undefined' || !L.canvas) return;
-  const pane = map.createPane('ocean');
-  pane.style.zIndex = 250;            // above tiles (200), below overlays/markers
-  pane.style.pointerEvents = 'none';
-  oceanRenderer = L.canvas({ pane: 'ocean', padding: 0.5 });
-  function swap(gj, level) {
-    if (level < oceanLevel) return;   // never replace 50m with 110m
-    oceanLevel = level;
-    const next = buildOceanLayer(gj);
-    next.addTo(map);
-    if (oceanLayer) map.removeLayer(oceanLayer);
-    oceanLayer = next;
-  }
-  function swapLakes(gj, level) {
-    if (level < lakesLevel) return;
-    lakesLevel = level;
-    const next = buildLakesLayer(gj);
-    next.addTo(map);
-    if (lakesLayer) map.removeLayer(lakesLayer);
-    lakesLayer = next;
-  }
-  function load(url, level, fn) {
-    fetch(url).then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
-      .then(function(gj) { fn(gj, level); })
-      .catch(function(e) { console.warn('Explorer: water layer failed to load', url, e); });
-  }
-  load(OCEAN_SRC.coarse, 1, swap);
-  load(OCEAN_SRC.fine, 2, swap);
-  load(LAKES_SRC.coarse, 1, swapLakes);
-  load(LAKES_SRC.fine, 2, swapLakes);
-  map.on('zoomend', function() {
-    const o = oceanOpacityForZoom(map.getZoom());
-    if (oceanLayer) oceanLayer.setStyle({ fillOpacity: o });
-    if (lakesLayer) lakesLayer.setStyle({ fillOpacity: o });
-  });
-}
-
 // ===== MAP SIZE WATCH =====
 // Leaflet caches its container size; view switches animate the list panel's width,
 // so the map used to keep the old size (tiles covering two-thirds, world in the
@@ -2391,7 +2302,6 @@ function initMap() {
     maxZoom: 19
   }).addTo(map);
 
-  initOceanLayer();
   initMapResizeWatch();
 
   initLabelOverlays();

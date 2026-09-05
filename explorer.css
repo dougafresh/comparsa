@@ -607,8 +607,8 @@
 
   /* MAP */
   .map-panel { flex: 1; position: relative; transition: flex 0.3s ease; display: flex; flex-direction: column; }
-  /* Land-coloured background: the navy comes from the ocean polygon layer, so
-     unloaded tiles no longer flash dark blocks. */
+  /* Light background close to the tiles' land tone, so unloaded tiles no
+     longer flash navy blocks while the map loads. */
   #map { width: 100%; flex: 1; z-index: 1; background: #ece7dc; }
   /* CartoDB Voyager tiles — warm and slightly saturated */
   .leaflet-tile-pane { filter: saturate(1.4) brightness(0.97); }
