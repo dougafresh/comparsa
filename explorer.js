@@ -996,9 +996,50 @@ function awardLabel(award, evId) {
 }
 const awardClasses = { jury: 'jury', audience: 'audience', impact: 'impact' };
 
+// CMS Award slugs are type-prefixed by the sync: "jury-…", "audience-…", "impact-…".
+// Legacy bare keys ("jury") still work. Anything unrecognised falls back to jury styling.
+function awardClass(key) {
+  const s = String(key || '').toLowerCase();
+  if (awardClasses[s]) return awardClasses[s];
+  if (s.indexOf('audience-') === 0) return 'audience';
+  if (s.indexOf('impact-') === 0) return 'impact';
+  if (s.indexOf('jury-') === 0) return 'jury';
+  if (s.indexOf('audience') !== -1) return 'audience';
+  if (s.indexOf('impact') !== -1) return 'impact';
+  return 'jury';
+}
+
+// Every award for an event, as {cls, label}.
+// CMS awards win outright; otherwise fall back to the single legacy badge.
+function awardList(evId, fallbackKey) {
+  const generic = { jury: t('juryAward'), audience: t('audienceAward'), impact: t('impactAward') };
+  const ev = events.find(function(e) { return e.id === evId; });
+  var list;
+  if (ev && ev.awards && ev.awards.length) {
+    list = ev.awards.map(function(a) {
+      const cls = awardClass(a.key || a.name);
+      return { cls: cls, label: (a.name || '').trim() || generic[cls] || '' };
+    });
+  } else if (fallbackKey) {
+    const cls = awardClass(fallbackKey);
+    list = [{ cls: cls, label: awardLabel(fallbackKey, evId) }];
+  } else {
+    return [];
+  }
+  const seen = {};
+  return list.filter(function(a) {
+    if (!a.label || seen[a.label]) return false;
+    seen[a.label] = 1;
+    return true;
+  });
+}
+
 function buildAwardBadge(award, evId) {
-  if (!award) return '';
-  return `<div class="award-badge ${awardClasses[award]}">${laurelIcon}<span>${awardLabel(award, evId)}</span></div>`;
+  const list = awardList(evId, award);
+  if (!list.length) return '';
+  return '<div class="award-badge-stack">' + list.map(function(a) {
+    return `<div class="award-badge ${a.cls}">${laurelIcon}<span>${a.label}</span></div>`;
+  }).join('') + '</div>';
 }
 
 function buildPremiereBadge(evId) {
@@ -1008,8 +1049,12 @@ function buildPremiereBadge(evId) {
 }
 
 function buildPopupAwardBadge(award, evId) {
-  if (!award) return '';
-  return `<div class="popup-award-badge"><span style="display:inline-flex;align-items:center;margin-right:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></span>${awardLabel(award, evId)}</div>`;
+  const list = awardList(evId, award);
+  if (!list.length) return '';
+  const icon = '<span style="display:inline-flex;align-items:center;margin-right:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></span>';
+  return '<div class="popup-award-stack">' + list.map(function(a) {
+    return `<div class="popup-award-badge ${a.cls}">${icon}${a.label}</div>`;
+  }).join('') + '</div>';
 }
 
 function buildTypeBadge(type) {
