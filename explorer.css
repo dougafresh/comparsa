@@ -448,6 +448,7 @@
   }
   .type-badge.festival { background: rgba(0,0,0,0.06); color: var(--dark); }
   .type-badge.special { background: rgba(21,101,192,0.2); color: #42a5f5; }
+  .type-badge.theatrical { background: rgba(232,97,77,0.16); color: var(--brand-coral); }
 
   /* STREAMING BADGE */
   .stream-badge {
@@ -1048,6 +1049,39 @@
   .notify-pill.visible { display: inline-flex; }
   .notify-pill:hover { background: rgba(232,97,77,0.18); border-color: rgba(232,97,77,0.35); transform: translateY(-1px); }
   .notify-pill .pill-icon { font-size: 13px; }
+
+  /* === NOTIFY: list-bottom CTA + inline error === */
+  .notify-cta {
+    grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    margin-top: 8px; padding: 18px 22px; border-radius: var(--radius);
+    background: linear-gradient(135deg, rgba(232,97,77,0.08) 0%, rgba(240,168,48,0.06) 100%);
+    border: 1px solid rgba(232,97,77,0.2);
+  }
+  .notify-cta-text { display: flex; flex-direction: column; gap: 3px; color: var(--dark); font-size: 14px; line-height: 1.45; }
+  .notify-cta-text span { color: var(--mid); font-size: 13px; }
+  .notify-cta-btn {
+    flex-shrink: 0; padding: 9px 20px; background: var(--brand-coral); color: #fff; border: none;
+    border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; font-family: var(--font);
+    transition: background 0.2s, transform 0.15s;
+  }
+  .notify-cta-btn:hover { background: #d4553f; transform: translateY(-1px); }
+  .notify-ac-credit { padding: 5px 14px; font-size: 10px; color: var(--light); background: #faf6ef; }
+  .notify-field.invalid input { border-color: #b3261e; }
+  .notify-error { color: #b3261e; font-size: 13px; line-height: 1.4; margin: 0 0 12px; }
+  @media (max-width: 1023px) {
+    .notify-cta { flex-direction: column; align-items: stretch; text-align: center; }
+    .notify-cta-btn { width: 100%; padding: 12px; }
+    /* The filter row scrolls sideways on phones and would push the pill off
+       screen, so it becomes a floating bell beside the centred Map toggle. */
+    .notify-pill.visible {
+      position: fixed; bottom: 24px; right: 16px; z-index: 1000;
+      width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 50%;
+      background: #fff; border: 1px solid rgba(232,97,77,0.35); color: var(--brand-coral);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15); animation: none;
+    }
+    .notify-pill .pill-text { display: none; }
+    .notify-pill .pill-icon svg { width: 20px; height: 20px; }
+  }
 
   /* === NOTIFY LOCATION AUTOCOMPLETE === */
   .notify-field { position: relative; }

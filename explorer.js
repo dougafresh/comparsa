@@ -1,13 +1,14 @@
-// ===== MAILCHIMP CONFIG =====
-const MAILCHIMP_CONFIG = {
-  // Replace with your Mailchimp values before going live
-  apiKey: '',           // e.g. 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-us14'
-  serverPrefix: '',     // e.g. 'us14' (the suffix after the dash in your API key)
-  listId: '',           // Your Audience / List ID
-  proxyUrl: '',         // Your server-side proxy URL (recommended for production)
-  // Set to true once config is filled in
-  enabled: false
+// ===== NOTIFY ME — where sign-ups go =====
+// The Screenings page POSTs each sign-up (one request per location) to this
+// relay, a Google Apps Script web app, which forwards it server-side to the
+// Airtable automation "Notify Me → create subscriber" (table Notify Subscribers).
+// Browsers cannot POST to hooks.airtable.com directly (no CORS headers), hence
+// the relay. Leave `endpoint` empty and the whole feature stays hidden.
+const NOTIFY_CONFIG = {
+  endpoint: 'https://script.google.com/macros/s/AKfycbyyRDFR4bRqXNSmUX411L_N-I4pO_7Fowo2ewxh_rrdfNmgXA2fXsWUsKTwxSnqQ8y_EA/exec',
+  radiusMi: 100      // what the helper text promises; stored with each record
 };
+function notifyEnabled() { return !!NOTIFY_CONFIG.endpoint; }
 
 // ===== LAUREL SVG =====
 const laurelIcon = `<span class="award-icon" style="display:inline-flex;align-items:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></span>`;
@@ -51,7 +52,7 @@ const translations = {
     searchPlaceholder: 'Search city, region, or event',
     featured: 'Featured', dateAsc: 'Date ↑', dateDesc: 'Date ↓',
     nearMe: 'Near me', distance: 'Distance', cityNamePlaceholder: 'City name',
-    allTypes: 'All Types', allDates: 'All Dates', festival: 'Festival', community: 'Community', educational: 'Educational', special: 'Special',
+    allTypes: 'All Types', allDates: 'All Dates', festival: 'Festival', community: 'Community', educational: 'Educational', special: 'Special', theatrical: 'Theatrical', theatricalRun: 'Theatrical Run',
     // View tooltips
     listView: 'List view', hybridView: 'Hybrid view', mapView: 'Map view', resetMap: 'Reset Map',
     // Cards
@@ -67,6 +68,7 @@ const translations = {
     onlineDate: 'Online {date}',
     watchLive: 'Watch live', liveStream: 'Live stream',
     availableWindow: 'Available {range}', online: 'Online',
+    myLocation: 'My location', locating: 'Locating...', locationDenied: 'Location access denied or unavailable.',
     otherVenues: '+{n} more at other venues',
     // Countdown
     // screeningRecently removed — past screening dates show no badge
@@ -75,6 +77,7 @@ const translations = {
     screeningThisDay: 'Screening this {day}',
     screeningInDays: 'Screening in {n} days',
     screeningOnDate: 'Screening {date}',
+    scheduleComingSoon: 'Schedule coming soon',
     // Streaming countdown (for events with upcoming or active streaming windows)
     streamingOnlineToday: 'Streaming online today!',
     streamingOnlineTomorrow: 'Streaming online tomorrow!',
@@ -92,7 +95,25 @@ const translations = {
     eventsInView: '{count} of {total} events in view',
     eventsNearby: '{count} nearby events',
     eventCount: '{n} event', eventsCount: '{n} events',
-    // Notify
+    // Notify (banner / pill / modal)
+    nfPill: 'Get notified',
+    nfBannerNone: 'No screenings near {city} right now. Get notified when Comparsa comes your way.',
+    nfBannerSome: 'Don’t see a screening that works for you? <strong>Get notified</strong> when Comparsa is screening near {city}.',
+    nfBannerBtn: 'Notify me', nfYourArea: 'your area', nfDismiss: 'Dismiss',
+    nfSuccess: 'You’re all set. We’ll email you when Comparsa comes near you.',
+    nfModalTitle: 'Get notified when Comparsa is near you',
+    nfModalDesc: 'We’ll email you when a new screening is announced near your location.',
+    nfEmailLabel: 'Email', nfEmailPlaceholder: 'you@example.com',
+    nfLocLabel: 'City, region, or ZIP code', nfLocPlaceholder: 'e.g. Boston, Utah, 90210, or London',
+    nfLocHelper: 'Start typing and choose a place from the list. We’ll only email you about screenings near it.',
+    nfPickError: 'Please choose a place from the suggestions so we know where to look.',
+    nfAddLocation: '+ Add another location',
+    nfNewsletterTitle: 'Also subscribe to the Comparsa newsletter',
+    nfNewsletterDesc: 'Occasional updates about the film. No spam, unsubscribe anytime.',
+    nfSubmit: 'Notify me', nfSubmitting: 'Sending…',
+    nfError: 'Something went wrong sending your request. Please try again in a moment.',
+    nfCtaTitle: 'Not near any of these?', nfCtaDesc: 'Tell us where you are and we’ll email you when Comparsa screens nearby.',
+    // Notify (legacy)
     notifyTitle: 'Get notified about screenings near you',
     notifyDesc: 'Add your city and preferred radius, and we\u2019ll let you know when a screening is posted nearby.',
     emailPlaceholder: 'Email address', cityPlaceholder: 'City',
@@ -122,7 +143,7 @@ const translations = {
     searchPlaceholder: 'Buscar ciudad, región o evento',
     featured: 'Destacadas', dateAsc: 'Fecha ↑', dateDesc: 'Fecha ↓',
     nearMe: 'Cerca de mí', distance: 'Distancia', cityNamePlaceholder: 'Nombre de ciudad',
-    allTypes: 'Todos los tipos', allDates: 'Todas las fechas', festival: 'Festival', community: 'Comunitaria', educational: 'Educativa', special: 'Especial',
+    allTypes: 'Todos los tipos', allDates: 'Todas las fechas', festival: 'Festival', community: 'Comunitaria', educational: 'Educativa', special: 'Especial', theatrical: 'En cines', theatricalRun: 'Estreno en cines',
     // View tooltips
     listView: 'Vista de lista', hybridView: 'Vista híbrida', mapView: 'Vista de mapa', resetMap: 'Restablecer mapa',
     // Cards
@@ -138,6 +159,7 @@ const translations = {
     onlineDate: 'En línea {date}',
     watchLive: 'Ver en vivo', liveStream: 'Transmisión en vivo',
     availableWindow: 'Disponible {range}', online: 'En línea',
+    myLocation: 'Mi ubicación', locating: 'Ubicando...', locationDenied: 'No se pudo acceder a tu ubicación.',
     otherVenues: '+{n} más en otras sedes',
     // Countdown
     // screeningRecently removed
@@ -146,6 +168,7 @@ const translations = {
     screeningThisDay: 'Proyección este {day}',
     screeningInDays: 'Proyección en {n} días',
     screeningOnDate: 'Proyección {date}',
+    scheduleComingSoon: 'Horarios próximamente',
     streamingOnlineToday: '¡Transmitiendo en línea hoy!',
     streamingOnlineTomorrow: '¡Transmitiendo en línea mañana!',
     streamingOnlineThisDay: 'Transmitiendo en línea este {day}',
@@ -162,7 +185,25 @@ const translations = {
     eventsInView: '{count} de {total} eventos en vista',
     eventsNearby: '{count} eventos cercanos',
     eventCount: '{n} evento', eventsCount: '{n} eventos',
-    // Notify
+    // Notify (banner / pill / modal)
+    nfPill: 'Avísame',
+    nfBannerNone: 'No hay proyecciones cerca de {city} por ahora. Recibe un aviso cuando Comparsa llegue a tu zona.',
+    nfBannerSome: '¿No encuentras una proyección que te funcione? <strong>Recibe un aviso</strong> cuando Comparsa se proyecte cerca de {city}.',
+    nfBannerBtn: 'Avísame', nfYourArea: 'tu zona', nfDismiss: 'Cerrar',
+    nfSuccess: 'Listo. Te escribiremos cuando Comparsa llegue cerca de ti.',
+    nfModalTitle: 'Recibe un aviso cuando Comparsa esté cerca de ti',
+    nfModalDesc: 'Te enviaremos un correo cuando se anuncie una nueva proyección cerca de tu ubicación.',
+    nfEmailLabel: 'Correo electrónico', nfEmailPlaceholder: 'tu@correo.com',
+    nfLocLabel: 'Ciudad, región o código postal', nfLocPlaceholder: 'p. ej. Ciudad de México, Utah, 90210 o Madrid',
+    nfLocHelper: 'Escribe y elige un lugar de la lista. Solo te escribiremos sobre proyecciones cerca de ahí.',
+    nfPickError: 'Elige un lugar de la lista de sugerencias para saber dónde buscar.',
+    nfAddLocation: '+ Agregar otra ubicación',
+    nfNewsletterTitle: 'Suscribirme también al boletín de Comparsa',
+    nfNewsletterDesc: 'Novedades ocasionales sobre la película. Sin spam; puedes darte de baja cuando quieras.',
+    nfSubmit: 'Avísame', nfSubmitting: 'Enviando…',
+    nfError: 'Algo salió mal al enviar tu solicitud. Inténtalo de nuevo en un momento.',
+    nfCtaTitle: '¿Ninguna te queda cerca?', nfCtaDesc: 'Dinos dónde estás y te escribiremos cuando Comparsa se proyecte cerca de ti.',
+    // Notify (legacy)
     notifyTitle: 'Recibe notificaciones sobre proyecciones cerca de ti',
     notifyDesc: 'Agrega tu ciudad y radio preferido, y te avisaremos cuando haya una proyección cercana.',
     emailPlaceholder: 'Correo electrónico', cityPlaceholder: 'Ciudad',
@@ -246,6 +287,8 @@ function setLanguage(lang) {
 
 function rebuildUI() {
   // Update static HTML elements with translations
+  const geoSpan = document.querySelector('#geolocateBtn span');
+  if (geoSpan) geoSpan.textContent = t('myLocation');
   // Nav
   const navLinks = document.querySelector('.nav-links');
   if (navLinks) navLinks.innerHTML = `<a href="#">${t('home')}</a><a href="#">${t('about')}</a><a href="#" class="active">${t('screenings')}</a><a href="#">${t('donate')}</a><a href="#">${t('press')}</a><a href="#">${t('contact')}</a>`;
@@ -279,7 +322,7 @@ function rebuildUI() {
 
   // Type filters
   const typeRow = document.getElementById('typeFilterRow');
-  if (typeRow) typeRow.innerHTML = `<div class="type-toggle"><button class="type-toggle-btn${typeFilter==='all'?' active':''}" data-type="all">${t('allTypes')}</button><button class="type-toggle-btn${typeFilter==='festival'?' active':''}" data-type="festival">${t('festival')}</button><button class="type-toggle-btn${typeFilter==='community'?' active':''}" data-type="community">${t('community')}</button><button class="type-toggle-btn${typeFilter==='educational'?' active':''}" data-type="educational">${t('educational')}</button><button class="type-toggle-btn${typeFilter==='special'?' active':''}" data-type="special">${t('special')}</button></div>`;
+  if (typeRow) typeRow.innerHTML = `<div class="type-toggle"><button class="type-toggle-btn${typeFilter==='all'?' active':''}" data-type="all">${t('allTypes')}</button><button class="type-toggle-btn${typeFilter==='festival'?' active':''}" data-type="festival">${t('festival')}</button><button class="type-toggle-btn${typeFilter==='theatrical'?' active':''}" data-type="theatrical">${t('theatrical')}</button><button class="type-toggle-btn${typeFilter==='community'?' active':''}" data-type="community">${t('community')}</button><button class="type-toggle-btn${typeFilter==='educational'?' active':''}" data-type="educational">${t('educational')}</button><button class="type-toggle-btn${typeFilter==='special'?' active':''}" data-type="special">${t('special')}</button></div>`;
 
   // View toggles
   document.querySelectorAll('.view-toggle').forEach(b => {
@@ -499,6 +542,38 @@ const COUNTRY_SHORT = {
   'El Salvador': 'El Salvador',
 };
 
+// ===== SPANISH PLACE NAMES =====
+// Cities/countries are STORED in English (geocoding, filters and the label
+// priority table key off the English form). On the Spanish page they are
+// swapped for the Spanish exonym at display time. Places missing here (Lima,
+// Quito, Calgary, Sheffield…) are the same in both languages and pass through.
+const PLACE_ES = {
+  // cities
+  'Mexico City': 'Ciudad de México', 'Guatemala City': 'Ciudad de Guatemala',
+  'Panama City': 'Ciudad de Panamá', 'New York': 'Nueva York', 'Philadelphia': 'Filadelfia',
+  'Washington DC': 'Washington D. C.', 'Washington, DC': 'Washington D. C.',
+  'London': 'Londres', 'Edinburgh': 'Edimburgo', 'Vienna': 'Viena', 'Seoul': 'Seúl',
+  'Kolkata': 'Calcuta', 'Padova': 'Padua', 'Aswan': 'Asuán', 'Online': 'En línea',
+  // countries
+  'United States': 'Estados Unidos', 'United Kingdom': 'Reino Unido', 'Canada': 'Canadá',
+  'Mexico': 'México', 'Peru': 'Perú', 'Panama': 'Panamá', 'Brazil': 'Brasil', 'Spain': 'España',
+  'Italy': 'Italia', 'Ireland': 'Irlanda', 'Norway': 'Noruega', 'South Korea': 'Corea del Sur',
+  'Egypt': 'Egipto', 'France': 'Francia', 'Dominican Republic': 'República Dominicana',
+  'Germany': 'Alemania', 'Netherlands': 'Países Bajos', 'Belgium': 'Bélgica', 'Switzerland': 'Suiza',
+  'Sweden': 'Suecia', 'Denmark': 'Dinamarca', 'Finland': 'Finlandia', 'Poland': 'Polonia',
+  'Greece': 'Grecia', 'Turkey': 'Turquía', 'Japan': 'Japón', 'New Zealand': 'Nueva Zelanda',
+  'South Africa': 'Sudáfrica', 'Morocco': 'Marruecos', 'Philippines': 'Filipinas',
+  // short country forms used by formatLocation
+  'UK': 'Reino Unido', 'DR': 'Rep. Dominicana',
+  // UK home nations (State field)
+  'Scotland': 'Escocia', 'England': 'Inglaterra', 'Wales': 'Gales', 'Northern Ireland': 'Irlanda del Norte'
+};
+function localizePlace(name) {
+  const s = (name || '').trim();
+  if (!s || currentLang !== 'es') return s;
+  return PLACE_ES[s] || s;
+}
+
 // States/provinces are STORED spelled out (Airtable convention) and
 // abbreviated here, at display time. Unknown values pass through unchanged,
 // so a legacy "NY" still renders as "NY".
@@ -530,21 +605,22 @@ function abbrevState(state) {
 // nations, "City, Country" (short form) for everywhere else
 function formatLocation(ev) {
   if (!ev.city) return '';
+  const city = localizePlace(ev.city);
   // US/Canada: show abbreviated state/province if available
   if (ev.state && (ev.country === 'United States' || ev.country === 'Canada')) {
-    return ev.city + ', ' + abbrevState(ev.state);
+    return city + ', ' + abbrevState(ev.state);
   }
   // UK: prefer the home nation over "UK" when the State field carries one
   if (ev.country === 'United Kingdom' && ev.state && UK_NATIONS.includes(ev.state.trim())) {
-    return ev.city + ', ' + ev.state.trim();
+    return city + ', ' + localizePlace(ev.state);
   }
   // Other countries: show short country name
   if (ev.country && ev.country !== 'United States' && ev.country !== 'Canada') {
     const short = COUNTRY_SHORT[ev.country];
     const countryLabel = short !== undefined ? short : ev.country;
-    if (countryLabel) return ev.city + ', ' + countryLabel;
+    if (countryLabel) return city + ', ' + localizePlace(countryLabel);
   }
-  return ev.city;
+  return city;
 }
 
 // Format website dates from SLUG_DATA for card display.
@@ -723,7 +799,11 @@ function loadEventsFromCMS() {
     const dateRangeStr = d.dateRange || formatDateRange(d.eventStart, d.eventEnd);
     return {
       id: d.id || el.getAttribute('data-slug') || '',
-      name: d.name || '',
+      // Language-specific name from the CMS (Name EN / Name ES, synced from
+      // Airtable Display Name (EN)/(ES)); falls back to the native Name.
+      name: ((currentLang === 'es' ? d.nameEs : d.nameEn) || d.name || '').trim(),
+      nameEn: (d.nameEn || d.name || '').trim(),
+      nameEs: (d.nameEs || d.name || '').trim(),
       city: d.city || '',
       country: d.country || '',
       lat: parseFloat(d.lat) || 0,
@@ -742,6 +822,7 @@ function loadEventsFromCMS() {
         if (!raw) return 'festival';
         const t = raw.trim().toLowerCase();
         if (/^fest/i.test(t)) return 'festival';
+        if (/^theat/i.test(t)) return 'theatrical';
         if (/^comm/i.test(t)) return 'community';
         if (/^edu/i.test(t)) return 'educational';
         return 'special';
@@ -1143,7 +1224,7 @@ function buildPopupAwardBadge(award, evId) {
 
 function buildTypeBadge(type) {
   if (type === 'festival') return '';
-  const labelMap = { community: 'community', educational: 'educational', special: 'specialScreening' };
+  const labelMap = { theatrical: 'theatricalRun', community: 'community', educational: 'educational', special: 'specialScreening' };
   const label = t(labelMap[type] || 'specialScreening');
   return `<span class="type-badge ${type}">${label}</span>`;
 }
@@ -1239,6 +1320,17 @@ function getUpcomingLabel(ev) {
     if (s.dateISO) { d = new Date(s.dateISO + 'T00:00:00'); d.setHours(0,0,0,0); }
     else if (s.date) { d = parseDate(s.date); }
     if (d && !isNaN(d.getTime()) && d >= today) { screenDate = d; break; }
+  }
+  // Announced but no showtimes published yet: no in-person / live screening
+  // records at all and no streaming window. Say so instead of counting down
+  // to Event Start as if a showtime were known. Ended events still get ''.
+  const hasAnyScreening = ev.screenings.some(s => s.type !== 'online-on-demand');
+  if (!screenDate && !streamLabel && !hasAnyScreening) {
+    if (ev.eventEnd) {
+      const end = new Date(ev.eventEnd); end.setHours(23,59,59,999);
+      if (end < today) return '';
+    }
+    return t('scheduleComingSoon');
   }
   // Fall back to event-level dates if no valid screening date found
   if (!screenDate || isNaN(screenDate.getTime())) {
@@ -1366,9 +1458,9 @@ function checkURLParams() {
     document.querySelectorAll('#timeFilters .type-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
   }
 
-  // Type filter: all | festival | community | educational | special
+  // Type filter: all | festival | theatrical | community | educational | special
   const ty = p.get('type');
-  if (ty && ['all','festival','community','educational','special'].includes(ty)) {
+  if (ty && ['all','festival','theatrical','community','educational','special'].includes(ty)) {
     typeFilter = ty;
     document.querySelectorAll('#typeFilterRow .type-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.type === ty));
   }
@@ -1457,6 +1549,7 @@ const categoryGradientMap = {
   community:   ["teal", "coral", "plum", "rose", "indigo"],
   educational: ["indigo", "plum", "teal", "rose", "coral"],
   special:     ["coral", "teal", "rose", "plum", "indigo"],
+  theatrical:  ["coral", "rose", "plum", "indigo", "teal"],
   default:     ["indigo", "plum", "teal", "coral", "rose"]
 };
 function hashString(str) {
@@ -1608,7 +1701,7 @@ function formatScreeningRowContent(s, ev) {
   const parts = [`<strong>${dateStr}</strong>`];
   var ft2 = formatTime(s.time);
   if (!isPast && ft2) parts.push(ft2);
-  if (s.venue) parts.push(s.city && s.city !== ev.city ? `${s.venue}, ${s.city}` : s.venue);
+  if (s.venue) parts.push(s.city && s.city !== ev.city ? `${s.venue}, ${localizePlace(s.city)}` : s.venue);
   return parts.join(' · ') + buildQATag(ev.id, s.venue, s.workshop);
 }
 
@@ -2056,8 +2149,12 @@ function findMatchingEvents(q) {
   const lq = q.toLowerCase();
   return events.filter(ev =>
     ev.name.toLowerCase().includes(lq) ||
+    (ev.nameEn || '').toLowerCase().includes(lq) ||
+    (ev.nameEs || '').toLowerCase().includes(lq) ||
     ev.city.toLowerCase().includes(lq) ||
+    localizePlace(ev.city).toLowerCase().includes(lq) ||
     ev.country.toLowerCase().includes(lq) ||
+    localizePlace(ev.country).toLowerCase().includes(lq) ||
     ev.screenings.some(s =>
       (s.venue && s.venue.toLowerCase().includes(lq)) ||
       (s.city && s.city.toLowerCase().includes(lq)) ||
@@ -2283,7 +2380,7 @@ document.addEventListener('keydown', e => {
 // ===== MAP =====
 // Default framing: Anchorage (61N, -150W) through Australia's east coast (153E)
 // and Seoul — wide world view so every pin is visible on load.
-const DEFAULT_MAP_BOUNDS = [[-35, -150], [62, 155]];
+const DEFAULT_MAP_BOUNDS = [[-38, -150], [62, 42]]; // Americas, Europe, Africa; Asia/Oceania intentionally cropped
 const DEFAULT_FIT_OPTIONS = { padding: [12, 12] };
 // Labels/leader lines temporarily hidden under an open popup or card panel.
 let popupHiddenLabels = [], popupHiddenLines = [];
@@ -2565,7 +2662,8 @@ function positionLabels() {
 
     const pt = map.latLngToContainerPoint([m.lat, m.lng]);
     labels.push({
-      text: shortCity,
+      text: localizePlace(shortCity),
+      key: shortCity,
       anchorX: pt.x,
       anchorY: pt.y,
       lineLen: BASE_LINE_LEN,
@@ -2706,7 +2804,7 @@ function positionLabels() {
     span.style.left = r.x + 'px';
     span.style.top = r.centerY + 'px';
     span.style.transform = 'translateY(-50%)';
-    span.addEventListener('click', () => onCityLabelClick(lb.text));
+    span.addEventListener('click', () => onCityLabelClick(lb.key));
     labelTextOverlay.appendChild(span);
   });
 }
@@ -2719,7 +2817,7 @@ function showHoverLabel(evId) {
   if (!labelTextOverlay || !labelSvg || !map) return;
   const m = leafletMarkers.find(lm => lm.id === evId);
   if (!m) return;
-  const city = m.cityShort;
+  const city = localizePlace(m.cityShort);
 
   const pt = map.latLngToContainerPoint([m.lat, m.lng]);
   const lineLen = BASE_LINE_LEN;
@@ -3134,9 +3232,13 @@ function sortEvents(eventsToSort) {
   if (sortMode === 'featured') {
     const today = new Date(); today.setHours(0,0,0,0);
 
+    // "Headline" = a festival, a theatrical run, or any event rated Prestige 4-5.
+    // Headline events sort in Tier 1 while upcoming and get the +4 below.
+    function isHeadline(e) { return e.type === 'festival' || e.type === 'theatrical' || e.prestige >= 4; }
+
     function qualityScore(e) {
       let score = e.prestige * 3;
-      if (e.type === 'festival') score += 4;
+      if (isHeadline(e)) score += 4;
       if (e.award) score += 3;
       if (e.press) score += 1;
       if (!e.upcoming) {
@@ -3147,16 +3249,17 @@ function sortEvents(eventsToSort) {
       return score;
     }
 
-    // Tier 1: upcoming festivals — always on top, sorted by prestige then soonest
-    const upcomingFestivals = sorted.filter(e => e.upcoming && e.type === 'festival')
+    // Tier 1: upcoming headline events (festivals, theatrical runs, Prestige >=4)
+    // — always on top, sorted by prestige then soonest
+    const upcomingFestivals = sorted.filter(e => e.upcoming && isHeadline(e))
       .sort((a, b) => qualityScore(b) - qualityScore(a) || parseSortDate(a) - parseSortDate(b));
 
     // Tier 2: past events — prestigious festivals, sorted by quality score
     const past = sorted.filter(e => !e.upcoming)
       .sort((a, b) => qualityScore(b) - qualityScore(a) || parseSortDate(b) - parseSortDate(a));
 
-    // Tier 3: upcoming non-festival (special screenings) — below past festivals
-    const upcomingSpecial = sorted.filter(e => e.upcoming && e.type !== 'festival')
+    // Tier 3: upcoming community / educational / special at Prestige <=3 — below past festivals
+    const upcomingSpecial = sorted.filter(e => e.upcoming && !isHeadline(e))
       .sort((a, b) => qualityScore(b) - qualityScore(a) || parseSortDate(a) - parseSortDate(b));
 
     return [...upcomingFestivals, ...past, ...upcomingSpecial, ...online];
@@ -3227,7 +3330,7 @@ function renderList() {
   // In map view: results inside the current map bounds first, then the rest.
   grid.innerHTML = list.concat(elsewhere).map(cardHTML).join('');
 
-  grid.innerHTML += `<div class="notify-section"><div class="notify-banner"><h3>${t('notifyTitle')}</h3><p>${t('notifyDesc')}</p><div class="notify-form"><input type="email" placeholder="${t('emailPlaceholder')}" style="flex:1;min-width:180px;"><input type="text" placeholder="${t('cityPlaceholder')}" style="width:140px;" id="notifyCity"><select id="notifyRadius"><option value="25">${t('miles25')}</option><option value="50" selected>${t('miles50')}</option><option value="100">${t('miles100')}</option><option value="250">${t('miles250')}</option></select><button class="notify-submit" onclick="addNotifyCity()">${t('addCity')}</button></div><div class="city-chips" id="cityChips"></div><div style="margin-top:16px;"><button class="notify-submit" style="opacity:0.5;cursor:not-allowed;" disabled>${t('subscribe')}</button></div></div></div>`;
+  if (notifyEnabled()) grid.innerHTML += `<div class="notify-cta" id="notifyCta"><div class="notify-cta-text"><strong>${t('nfCtaTitle')}</strong><span>${t('nfCtaDesc')}</span></div><button type="button" class="notify-cta-btn" onclick="openNotifyModal()">${t('nfPill')}</button></div>`;
 
   updateResultCount(list.length + elsewhere.length);
   grid.querySelectorAll('.event-card').forEach(card => {
@@ -3269,7 +3372,7 @@ function matchesFilters(ev) {
   if(typeFilter!=='all' && ev.type!==typeFilter) return false;
   if(searchQuery){
     const q=searchQuery.toLowerCase();
-    const textMatch = `${ev.name} ${ev.city} ${ev.country} ${ev.screenings.map(s => `${s.venue||''} ${s.city||''} ${s.geoLabel||''}`).join(' ')}`.toLowerCase().includes(q);
+    const textMatch = `${ev.name} ${ev.nameEn||''} ${ev.nameEs||''} ${ev.city} ${localizePlace(ev.city)} ${ev.country} ${localizePlace(ev.country)} ${ev.screenings.map(s => `${s.venue||''} ${s.city||''} ${localizePlace(s.city)} ${s.geoLabel||''}`).join(' ')}`.toLowerCase().includes(q);
     // Also check if online event covers the searched region
     const onlineMatch = ev.online ? onlineCoversRegion(ev.online, q) : false;
     if(!textMatch && !onlineMatch) return false;
@@ -3337,10 +3440,6 @@ function setView(view) {
 }
 
 // ===== NOTIFY =====
-const notifyCities=[];
-function addNotifyCity(){const c=document.getElementById('notifyCity'),r=document.getElementById('notifyRadius');if(!c||!c.value.trim())return;notifyCities.push({city:c.value.trim(),radius:r.value});c.value='';renderCityChips();}
-function removeNotifyCity(i){notifyCities.splice(i,1);renderCityChips();}
-function renderCityChips(){const c=document.getElementById('cityChips');if(!c)return;c.innerHTML=notifyCities.map((x,i)=>`<span class="city-chip">${x.city} (${x.radius} mi) <button onclick="removeNotifyCity(${i})">\u00d7</button></span>`).join('');}
 
 // ===== GEOLOCATION =====
 function handleGeolocate() {
@@ -3349,19 +3448,19 @@ function handleGeolocate() {
     return;
   }
   const btn = document.getElementById('geolocateBtn');
-  btn.querySelector('span').textContent = 'Locating...';
+  btn.querySelector('span').textContent = t('locating');
   navigator.geolocation.getCurrentPosition(
     position => {
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
-      btn.querySelector('span').textContent = 'My location';
-      setLocationChip('My location', lat, lng);
+      btn.querySelector('span').textContent = t('myLocation');
+      setLocationChip(t('myLocation'), lat, lng);
       if (map) map.flyTo([lat, lng], 6, { duration: 1.5 });
       applyFilters();
     },
     error => {
-      btn.querySelector('span').textContent = 'My location';
-      alert('Location access denied or unavailable.');
+      btn.querySelector('span').textContent = t('myLocation');
+      alert(t('locationDenied'));
     }
   );
 }
@@ -3507,48 +3606,60 @@ function bindEvents() {
 }
 
 // ===== NOTIFY ME FEATURE =====
-let notifyLocationCount = 1;
 let notifyCurrentCity = '';
 let notifyBannerTimer = null;
 
+function notifyFlag(k) { try { return localStorage.getItem(k) === 'true'; } catch (e) { return false; } }
+function setNotifyFlag(k) { try { localStorage.setItem(k, 'true'); } catch (e) {} }
 function shouldShowNotifyBanner() {
-  try {
-    if (localStorage.getItem('geoNotifyDismissed') === 'true') return false;
-    if (localStorage.getItem('geoNotifySubmitted') === 'true') return false;
-  } catch(e) {}
-  return true;
+  return notifyEnabled() && !notifyFlag('geoNotifyDismissed') && !notifyFlag('geoNotifySubmitted');
 }
 
-// On load, show pill if banner was previously dismissed
-try {
-  if (localStorage.getItem('geoNotifyDismissed') === 'true' && localStorage.getItem('geoNotifySubmitted') !== 'true') {
-    document.addEventListener('DOMContentLoaded', () => showNotifyPill());
+// The pill is always available (until the visitor has signed up); it also
+// carries the localized label. Runs after the DOM exists.
+function initNotifyUI() {
+  if (!notifyEnabled()) return;
+  const pill = document.getElementById('notifyPill');
+  if (pill) {
+    const icon = pill.querySelector('.pill-icon');
+    pill.textContent = '';
+    if (icon) pill.appendChild(icon);
+    const label = document.createElement('span');
+    label.className = 'pill-text';
+    label.textContent = t('nfPill');
+    pill.appendChild(label);
+    pill.title = t('nfPill');
+    pill.setAttribute('role', 'button');
+    pill.setAttribute('aria-label', t('nfPill'));
   }
-} catch(e) {}
+  const btn = document.getElementById('notifyBannerBtn');
+  if (btn) btn.textContent = t('nfBannerBtn');
+  const close = document.getElementById('notifyBannerClose');
+  if (close) close.title = t('nfDismiss');
+  showNotifyPill();
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initNotifyUI); else initNotifyUI();
 
 function showNotifyBanner(cityName) {
   if (!shouldShowNotifyBanner()) return;
-  notifyCurrentCity = cityName || 'your area';
+  notifyCurrentCity = cityName || t('nfYourArea');
   if (notifyBannerTimer) clearTimeout(notifyBannerTimer);
 
   notifyBannerTimer = setTimeout(() => {
     const banner = document.getElementById('notifyBanner');
     const textEl = document.getElementById('notifyBannerText');
     const btnEl = document.getElementById('notifyBannerBtn');
+    if (!banner || !textEl || !btnEl) return;
 
     // Count nearby results (within ~160km / 100mi)
     const nearbyCount = (proximityLat && proximityLng) ? events.filter(ev => {
       if (ev.lat === 0 && ev.lng === 0) return false;
-      const d = eventDistance(proximityLat, proximityLng, ev);
-      return d < 160;
+      return eventDistance(proximityLat, proximityLng, ev) < 160;
     }).length : 0;
 
-    if (nearbyCount === 0) {
-      textEl.textContent = 'No screenings near ' + notifyCurrentCity + ' right now. Get notified when Comparsa comes to your area.';
-    } else {
-      textEl.innerHTML = 'Don\u2019t see a screening that works for you? <strong>Get notified</strong> when Comparsa is screening near ' + notifyCurrentCity + '.';
-    }
-    btnEl.textContent = 'Notify me';
+    textEl.innerHTML = t(nearbyCount === 0 ? 'nfBannerNone' : 'nfBannerSome', { city: escapeHtml(notifyCurrentCity) });
+    btnEl.textContent = t('nfBannerBtn');
+    btnEl.style.display = '';
     banner.classList.remove('success');
     banner.classList.add('visible');
   }, 500);
@@ -3556,78 +3667,231 @@ function showNotifyBanner(cityName) {
 
 function hideNotifyBanner() {
   if (notifyBannerTimer) { clearTimeout(notifyBannerTimer); notifyBannerTimer = null; }
-  document.getElementById('notifyBanner').classList.remove('visible');
+  const b = document.getElementById('notifyBanner');
+  if (b) b.classList.remove('visible');
 }
 
 function dismissNotifyBanner() {
   hideNotifyBanner();
-  try { localStorage.setItem('geoNotifyDismissed', 'true'); } catch(e) {}
+  setNotifyFlag('geoNotifyDismissed');
   showNotifyPill();
 }
 
 function showNotifyPill() {
-  try { if (localStorage.getItem('geoNotifySubmitted') === 'true') return; } catch(e) {}
-  document.getElementById('notifyPill').classList.add('visible');
+  if (!notifyEnabled() || notifyFlag('geoNotifySubmitted')) return;
+  const p = document.getElementById('notifyPill');
+  if (p) p.classList.add('visible');
 }
 
 function hideNotifyPill() {
-  document.getElementById('notifyPill').classList.remove('visible');
+  const p = document.getElementById('notifyPill');
+  if (p) p.classList.remove('visible');
 }
 
 function showNotifySuccess() {
   const banner = document.getElementById('notifyBanner');
   const textEl = document.getElementById('notifyBannerText');
-  textEl.textContent = 'You\u2019re all set \u2014 we\u2019ll notify you when Comparsa comes near you.';
-  banner.querySelector('.notify-banner-btn').style.display = 'none';
-  banner.classList.add('success', 'visible');
+  if (banner && textEl) {
+    textEl.textContent = t('nfSuccess');
+    const b = banner.querySelector('.notify-banner-btn');
+    if (b) b.style.display = 'none';
+    banner.classList.add('success', 'visible');
+    setTimeout(() => { banner.classList.remove('visible'); }, 6000);
+  }
   hideNotifyPill();
-  try { localStorage.setItem('geoNotifySubmitted', 'true'); } catch(e) {}
-  setTimeout(() => { banner.classList.remove('visible'); }, 5000);
+  const cta = document.getElementById('notifyCta');
+  if (cta) cta.remove();
+  setNotifyFlag('geoNotifySubmitted');
+}
+
+// Static modal copy lives in the Webflow embed in English; swap it for the
+// active language every time the modal opens (cheap, and survives re-renders).
+function localizeNotifyModal() {
+  const m = document.querySelector('.notify-modal');
+  if (!m) return;
+  const h2 = m.querySelector('h2'); if (h2) h2.textContent = t('nfModalTitle');
+  const p = m.querySelector('h2 + p'); if (p) p.textContent = t('nfModalDesc');
+  const emailLabel = m.querySelector('label[for="notifyEmail"]'); if (emailLabel) emailLabel.textContent = t('nfEmailLabel');
+  const email = document.getElementById('notifyEmail'); if (email) email.placeholder = t('nfEmailPlaceholder');
+  m.querySelectorAll('#notifyLocationsWrap label').forEach(l => { l.textContent = t('nfLocLabel'); });
+  m.querySelectorAll('#notifyLocationsWrap input[type="text"]').forEach(i => { i.placeholder = t('nfLocPlaceholder'); });
+  const helper = m.querySelector('.field-helper'); if (helper) helper.textContent = t('nfLocHelper');
+  const add = document.getElementById('notifyAddLocation'); if (add) add.textContent = t('nfAddLocation');
+  const nl = m.querySelector('label[for="notifyNewsletter"]');
+  if (nl) nl.innerHTML = '<strong>' + t('nfNewsletterTitle') + '</strong><br>' + t('nfNewsletterDesc');
+  const submit = document.getElementById('notifySubmit'); if (submit) { submit.textContent = t('nfSubmit'); submit.disabled = false; }
+  const err = document.getElementById('notifyError'); if (err) err.remove();
 }
 
 function openNotifyModal() {
   const overlay = document.getElementById('notifyOverlay');
+  if (!overlay) return;
   overlay.classList.add('visible');
   document.body.style.overflow = 'hidden';
-
-  // Pre-fill location from current context
-  const locInput = document.getElementById('notifyLocation0');
-  if (notifyCurrentCity && notifyCurrentCity !== 'your area') {
-    locInput.value = notifyCurrentCity;
-    // Store geo data if we have proximity coords
-    if (proximityLat && proximityLng) {
-      notifyGeoData['notifyLocation0'] = {
-        city: notifyCurrentCity,
-        country: '',
-        countryCode: '',
-        lat: proximityLat,
-        lng: proximityLng,
-        type: 'place',
-        fullName: notifyCurrentCity
-      };
-    }
+  notifyOpenedAt = Date.now();
+  // Honeypot: invisible to people, tempting to bots. The relay drops any
+  // submission that fills it.
+  if (!document.getElementById('notifyWebsite')) {
+    const hp = document.createElement('input');
+    hp.type = 'text'; hp.id = 'notifyWebsite'; hp.name = 'website'; hp.autocomplete = 'off'; hp.tabIndex = -1;
+    hp.setAttribute('aria-hidden', 'true');
+    hp.style.cssText = 'position:absolute;left:-9999px;top:auto;width:1px;height:1px;opacity:0;';
+    document.getElementById('notifyForm').appendChild(hp);
   }
 
-  // Reset to single location field
+  // Reset to a single location field, then localize
   notifyLocationCount = 1;
   const wrap = document.getElementById('notifyLocationsWrap');
   while (wrap.children.length > 1) wrap.removeChild(wrap.lastChild);
   document.getElementById('notifyAddLocation').style.display = 'inline-block';
+  localizeNotifyModal();
 
-  // Initialize autocomplete on first field
+  // Pre-fill location from the current search context
+  const locInput = document.getElementById('notifyLocation0');
+  delete notifyGeoData['notifyLocation0'];
+  if (notifyCurrentCity && notifyCurrentCity !== t('nfYourArea')) {
+    locInput.value = notifyCurrentCity;
+    if (proximityLat && proximityLng) {
+      notifyGeoData['notifyLocation0'] = {
+        city: notifyCurrentCity, country: '', countryCode: '',
+        lat: proximityLat, lng: proximityLng, type: 'place', fullName: notifyCurrentCity
+      };
+    }
+  }
+
   initNotifyLocationInput('notifyLocation0', 'notifyAC0');
 
-  // Focus email if empty, otherwise location
   setTimeout(() => {
     const emailInput = document.getElementById('notifyEmail');
-    if (!emailInput.value) emailInput.focus();
-    else locInput.focus();
+    if (!emailInput.value) emailInput.focus(); else locInput.focus();
   }, 100);
 }
 
 function closeNotifyModal() {
-  document.getElementById('notifyOverlay').classList.remove('visible');
+  const o = document.getElementById('notifyOverlay');
+  if (o) o.classList.remove('visible');
   document.body.style.overflow = '';
+}
+
+let notifyLocationCount = 1;
+let notifyOpenedAt = 0;
+
+// ===== PLACE SUGGESTIONS (Photon / OpenStreetMap) =====
+// Type-ahead for the notify modal. Photon (photon.komoot.io) is built for
+// search-as-you-type on OSM data; Nominatim (used by the main search box) is
+// a full-text geocoder whose terms forbid autocomplete, so it is only the
+// fallback here. Results are re-ranked client-side: big places over hamlets,
+// name-prefix matches first, and a nudge toward the visitor's known location.
+const PHOTON_URL = 'https://photon.komoot.io/api/';
+const placeSuggestCache = {};
+const PLACE_RANK = { city: 6, state: 6, country: 5, town: 5, municipality: 4, county: 4, administrative: 4, region: 4, province: 4, borough: 3, suburb: 2, village: 2, quarter: 1, neighbourhood: 1, hamlet: 1, locality: 1, postcode: 3 };
+const PLACE_RESULT_TYPES = { city: 'place', town: 'place', village: 'place', hamlet: 'place', municipality: 'place', borough: 'place', suburb: 'place', quarter: 'place', neighbourhood: 'place', locality: 'place', state: 'state', province: 'state', region: 'state', county: 'state', administrative: 'state', country: 'country', postcode: 'postcode' };
+
+// Spanish exonyms ("Nueva York", "Londres") are not what OSM indexes for
+// those places, so a query that matches one is also run in English. Built
+// from PLACE_ES, accent-insensitive.
+function normPlace(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim(); }
+const EXONYM_TO_EN = (() => { const m = {}; Object.keys(PLACE_ES).forEach(en => { m[normPlace(PLACE_ES[en])] = en; }); return m; })();
+function exonymQuery(q) {
+  const nq = normPlace(q);
+  if (nq.length < 3) return null;
+  if (EXONYM_TO_EN[nq]) return EXONYM_TO_EN[nq];
+  const hit = Object.keys(EXONYM_TO_EN).find(es => es.startsWith(nq));
+  return hit ? EXONYM_TO_EN[hit] : null;
+}
+
+function suggestBiasPoint() {
+  if (proximityLat && proximityLng) return { lat: proximityLat, lon: proximityLng };
+  try { if (typeof map !== 'undefined' && map && map.getZoom() >= 5) { const c = map.getCenter(); return { lat: c.lat, lon: c.lng }; } } catch (e) {}
+  return null;
+}
+
+function formatSuggestName(p, kind) {
+  const cc = (p.countrycode || '').toUpperCase();
+  const country = localizePlace(p.country || '');
+  if (kind === 'country') return p.name;
+  if (kind === 'postcode') {
+    const locality = p.city || p.county || p.state || '';
+    return locality ? `${p.name} · ${localizePlace(locality)}${cc && cc !== 'US' ? ', ' + country : ''}` : p.name;
+  }
+  if (kind === 'state') {
+    if (cc === 'US') return p.name;
+    return country ? `${p.name}, ${country}` : p.name;
+  }
+  const name = localizePlace(p.name);
+  if (cc === 'US' && p.state && STATE_ABBR[p.state]) return `${name}, ${STATE_ABBR[p.state]}`;
+  if (cc === 'US' && p.state) return `${name}, ${p.state}`;
+  if ((cc === 'CA' || cc === 'GB' || cc === 'AU') && p.state) return `${name}, ${p.state}`;
+  return country ? `${name}, ${country}` : name;
+}
+
+async function placeSuggest(q) {
+  const key = (currentLang === 'es' ? 'es|' : 'en|') + q.toLowerCase();
+  if (placeSuggestCache[key]) return placeSuggestCache[key];
+  const numeric = /^\d{3,}/.test(q.trim());
+  const bias = suggestBiasPoint();
+  const buildUrl = (term) => {
+    const params = new URLSearchParams({ q: term, limit: numeric ? 12 : 15, lang: 'en' });
+    if (!numeric) ['city', 'district', 'county', 'state', 'country', 'locality'].forEach(l => params.append('layer', l));
+    if (bias) { params.set('lat', bias.lat.toFixed(4)); params.set('lon', bias.lon.toFixed(4)); }
+    return PHOTON_URL + '?' + params.toString();
+  };
+  const altQ = numeric ? null : exonymQuery(q);
+  const altLq = altQ ? altQ.toLowerCase() : null;
+  let features;
+  try {
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), 4000) : null;
+    const opts = ctrl ? { signal: ctrl.signal } : {};
+    const urls = altQ ? [buildUrl(altQ), buildUrl(q)] : [buildUrl(q)];
+    const pages = await Promise.all(urls.map(u => fetch(u, opts).then(r => { if (!r.ok) throw new Error('photon ' + r.status); return r.json(); })));
+    if (timer) clearTimeout(timer);
+    features = [].concat.apply([], pages.map(pg => pg.features || []));
+  } catch (e) {
+    console.warn('[Notify Me] Photon unavailable, falling back to Nominatim:', e && e.message);
+    return geocodeSearch(q);
+  }
+  const lq = q.trim().toLowerCase();
+  const seen = new Set();
+  const scored = [];
+  features.forEach(f => {
+    const p = f.properties || {};
+    const val = p.osm_value === 'administrative' ? (p.type || 'administrative') : (p.osm_value || p.type || '');
+    const kind = PLACE_RESULT_TYPES[val] || null;
+    if (!kind) return;
+    if (numeric && kind !== 'postcode') return;
+    if (!numeric && kind === 'postcode') return;
+    if (!p.name) return;
+    const [lng, lat] = (f.geometry && f.geometry.coordinates) || [];
+    if (typeof lat !== 'number') return;
+    const display = formatSuggestName(p, kind);
+    const dedupe = display.toLowerCase();   // "Kingston, Jamaica" once, whether city or county
+    if (seen.has(dedupe)) return;
+    seen.add(dedupe);
+    let score = PLACE_RANK[val] || PLACE_RANK[p.type] || 1;
+    const nm = p.name.toLowerCase();
+    const nnm = normPlace(nm), nlq = normPlace(lq);
+    if (nnm === nlq || (altLq && nnm === altLq)) score += 4;
+    else if (nnm.startsWith(nlq) || (altLq && nnm.startsWith(altLq))) score += 2.5;
+    else if (nnm.split(/\s+/).some(w => w.startsWith(nlq))) score += 1;
+    if (numeric && (p.countrycode || '').toUpperCase() === 'US') score += 2;
+    if (bias) { const d = Math.hypot(lat - bias.lat, (lng - bias.lon) * Math.cos(bias.lat * Math.PI / 180)); if (d < 3) score += 1.5; else if (d < 10) score += 0.5; }
+    scored.push({
+      score: score,
+      name: display,
+      fullName: [p.name, p.state, p.country].filter(Boolean).join(', '),
+      city: kind === 'postcode' ? (p.city || p.county || '') : p.name,
+      lat: lat, lng: lng,
+      country: p.country || '',
+      countryCode: (p.countrycode || '').toUpperCase(),
+      type: kind === 'state' ? 'administrative' : kind,
+      postcode: kind === 'postcode' ? p.name : ''
+    });
+  });
+  scored.sort((a, b) => b.score - a.score);
+  const out = scored.slice(0, 6);
+  placeSuggestCache[key] = out;
+  return out;
 }
 
 // ===== NOTIFY LOCATION AUTOCOMPLETE =====
@@ -3645,7 +3909,7 @@ function initNotifyLocationInput(inputId, acId) {
     delete notifyGeoData[inputId];
     if (q.length < 2) { ac.classList.remove('visible'); return; }
     clearTimeout(notifyACTimers[inputId]);
-    notifyACTimers[inputId] = setTimeout(() => fetchNotifyAutocomplete(q, inputId, acId), 300);
+    notifyACTimers[inputId] = setTimeout(() => fetchNotifyAutocomplete(q, inputId, acId), 200);
   });
 
   input.addEventListener('focus', () => {
@@ -3671,9 +3935,10 @@ function initNotifyLocationInput(inputId, acId) {
       activeIdx = Math.max(activeIdx - 1, 0);
       items.forEach((it, i) => it.classList.toggle('active', i === activeIdx));
       items[activeIdx]?.scrollIntoView({ block: 'nearest' });
-    } else if (e.key === 'Enter' && activeIdx >= 0) {
+    } else if (e.key === 'Enter') {
       e.preventDefault();
-      items[activeIdx]?.click();
+      const pick = activeIdx >= 0 ? items[activeIdx] : items[0];
+      if (pick) pick.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     } else if (e.key === 'Escape') {
       ac.classList.remove('visible');
     }
@@ -3682,21 +3947,25 @@ function initNotifyLocationInput(inputId, acId) {
 
 async function fetchNotifyAutocomplete(q, inputId, acId) {
   const ac = document.getElementById(acId);
-  const results = await geocodeSearch(q);
+  const results = await placeSuggest(q);
   if (!results.length) { ac.classList.remove('visible'); return; }
+  const stillWanted = document.getElementById(inputId);
+  if (!stillWanted || stillWanted.value.trim().toLowerCase() !== q.toLowerCase()) return; // typed on; a newer request will render
 
   ac.innerHTML = results.map((r, i) => {
     const icon = r.type === 'administrative' || r.type === 'state'
       ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="m16 8 5-3v16l-5-3z"/></svg>'
+      : r.type === 'postcode'
+      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>'
       : r.type === 'country'
       ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>'
       : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
     return '<div class="notify-ac-item" data-idx="' + i + '">' +
       '<span class="ac-icon">' + icon + '</span>' +
       '<span class="ac-name">' + escapeHtml(r.name) + '</span>' +
-      '<span class="ac-detail">' + escapeHtml(r.country) + '</span>' +
+      '<span class="ac-detail">' + escapeHtml(r.type === 'country' ? '' : localizePlace(r.country)) + '</span>' +
     '</div>';
-  }).join('');
+  }).join('') + '<div class="notify-ac-credit">© OpenStreetMap contributors</div>';
   ac.classList.add('visible');
 
   ac.querySelectorAll('.notify-ac-item').forEach(item => {
@@ -3705,9 +3974,11 @@ async function fetchNotifyAutocomplete(q, inputId, acId) {
       const idx = parseInt(item.dataset.idx);
       const r = results[idx];
       const input = document.getElementById(inputId);
-      input.value = r.name + (r.country ? ', ' + r.country : '');
+      input.value = r.name;
+      input.closest('.notify-field').classList.remove('invalid');
+      const pickErr = document.getElementById('notifyError'); if (pickErr) pickErr.remove();
       notifyGeoData[inputId] = {
-        city: r.name,
+        city: r.city || r.name,
         country: r.country,
         countryCode: r.countryCode,
         lat: r.lat,
@@ -3731,8 +4002,8 @@ function addNotifyLocation() {
   const idx = notifyLocationCount++;
   const field = document.createElement('div');
   field.className = 'notify-field';
-  field.innerHTML = '<label for="notifyLocation' + idx + '">City, region, or ZIP code</label>' +
-    '<input type="text" id="notifyLocation' + idx + '" placeholder="e.g. Los Angeles, Utah, or London" required autocomplete="off">' +
+  field.innerHTML = '<label for="notifyLocation' + idx + '">' + t('nfLocLabel') + '</label>' +
+    '<input type="text" id="notifyLocation' + idx + '" placeholder="' + t('nfLocPlaceholder').replace(/"/g, '&quot;') + '" required autocomplete="off">' +
     '<div class="notify-autocomplete" id="notifyAC' + idx + '"></div>' +
     '<button type="button" class="notify-remove-location" onclick="removeNotifyLocation(this)">&times;</button>';
   wrap.appendChild(field);
@@ -3752,150 +4023,95 @@ function removeNotifyLocation(btn) {
 function submitNotifyForm(e) {
   e.preventDefault();
   const btn = document.getElementById('notifySubmit');
-  btn.disabled = true;
-  btn.textContent = 'Submitting...';
-
   const email = document.getElementById('notifyEmail').value.trim();
   const wantsNewsletter = document.getElementById('notifyNewsletter').checked;
   const locationInputs = document.querySelectorAll('#notifyLocationsWrap input[type="text"]');
   const locations = Array.from(locationInputs).map(inp => {
     const geo = notifyGeoData[inp.id] || {};
+    const isRegion = geo.type === 'administrative' || geo.type === 'state';
     return {
-      location_input: inp.value.trim(),
-      city: geo.city || null,
-      region: geo.type === 'administrative' || geo.type === 'state' ? geo.city : null,
-      country: geo.country || null,
-      country_code: geo.countryCode || null,
-      lat: geo.lat || null,
-      lng: geo.lng || null
+      location: inp.value.trim(),
+      city: isRegion ? '' : (geo.city || ''),
+      region: isRegion ? (geo.city || '') : '',
+      country: geo.country || '',
+      country_code: geo.countryCode || '',
+      lat: typeof geo.lat === 'number' ? geo.lat : '',
+      lng: typeof geo.lng === 'number' ? geo.lng : ''
     };
-  }).filter(l => l.location_input);
+  }).filter(l => l.location);
+  if (!email || !locations.length) return;
 
-  const submission = {
-    email: email,
-    source: 'screenings page',
-    timestamp: new Date().toISOString(),
-    locations: locations,
-    newsletter_opt_in: wantsNewsletter
-  };
-
-  // Log submission (in production, this would POST to an API)
-  console.log('[Notify Me] Submission:', JSON.stringify(submission, null, 2));
-
-  // --- Mailchimp (fire-and-forget, never blocks UX) ---
-  sendToMailchimp(email, locations, wantsNewsletter);
-
-  // Simulate Airtable delay (existing logic unchanged)
-  setTimeout(() => {
-    btn.disabled = false;
-    btn.textContent = 'Notify me';
-    closeNotifyModal();
-    showNotifySuccess();
-  }, 800);
-}
-
-// ===== MAILCHIMP INTEGRATION =====
-async function sendToMailchimp(email, locations, wantsNewsletter) {
-  if (!MAILCHIMP_CONFIG.enabled) {
-    console.log('[Mailchimp] Skipped — integration not enabled. Set MAILCHIMP_CONFIG.enabled = true after filling in credentials.');
+  const oldErr = document.getElementById('notifyError'); if (oldErr) oldErr.remove();
+  // Every location must come from the suggestion list, so each record carries
+  // coordinates we can filter on. Free text alone is refused.
+  let firstBad = null;
+  locationInputs.forEach(inp => {
+    const ok = !!(notifyGeoData[inp.id] && typeof notifyGeoData[inp.id].lat === 'number');
+    inp.closest('.notify-field').classList.toggle('invalid', !ok && !!inp.value.trim());
+    if (!ok && !firstBad) firstBad = inp;
+  });
+  if (firstBad) {
+    const err = document.createElement('div');
+    err.id = 'notifyError'; err.className = 'notify-error'; err.textContent = t('nfPickError');
+    btn.insertAdjacentElement('beforebegin', err);
+    firstBad.focus();
+    if (firstBad.value.trim().length >= 2) fetchNotifyAutocomplete(firstBad.value.trim(), firstBad.id, firstBad.id.replace('notifyLocation', 'notifyAC'));
     return;
   }
+  btn.disabled = true;
+  btn.textContent = t('nfSubmitting');
 
-  // Build tags: always geo_notify, optionally newsletter
-  const tags = ['geo_notify'];
-  if (wantsNewsletter) tags.push('newsletter');
-
-  // Build merge fields from first location
-  const loc = locations[0] || {};
-  const mergeFields = {
-    GEO_CITY: loc.city || loc.location_input || '',
-    GEO_REGION: loc.region || '',
-    GEO_COUNTRY: loc.country || '',
-    GEO_LAT: loc.lat ? String(loc.lat) : '',
-    GEO_LNG: loc.lng ? String(loc.lng) : '',
-    LOCATIONS: locations.map(l => l.location_input).join('; ')
+  const common = {
+    email: email,
+    newsletter: wantsNewsletter,
+    language: currentLang === 'es' ? 'es' : 'en',
+    radius_mi: NOTIFY_CONFIG.radiusMi,
+    source: 'screenings page',
+    page_url: window.location.href,
+    submitted_at: new Date().toISOString(),
+    elapsed_ms: notifyOpenedAt ? Date.now() - notifyOpenedAt : null,
+    website: (document.getElementById('notifyWebsite') || {}).value || ''
   };
 
-  // Determine endpoint
-  const endpoint = MAILCHIMP_CONFIG.proxyUrl
-    || `https://${MAILCHIMP_CONFIG.serverPrefix}.api.mailchimp.com/3.0/lists/${MAILCHIMP_CONFIG.listId}/members`;
-
-  const body = {
-    email_address: email,
-    // 'pending' requires double opt-in; won't auto-subscribe to anything
-    status: 'pending',
-    tags: tags,
-    merge_fields: mergeFields
-  };
-
-  try {
-    const headers = { 'Content-Type': 'application/json' };
-    // If calling Mailchimp directly (dev/testing), add auth header
-    if (!MAILCHIMP_CONFIG.proxyUrl && MAILCHIMP_CONFIG.apiKey) {
-      headers['Authorization'] = 'Basic ' + btoa('anystring:' + MAILCHIMP_CONFIG.apiKey);
-    }
-
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(body)
-    });
-
-    if (res.ok) {
-      console.log('[Mailchimp] Successfully added/updated subscriber:', email, 'tags:', tags);
+  // every record keeps the opt-in flag; only the first request asks the relay to touch Mailchimp
+  sendNotifySignups(locations.map((l, i) => Object.assign({}, common, l, { mailchimp: i === 0 }))).then(ok => {
+    if (ok) {
+      closeNotifyModal();
+      showNotifySuccess();
+      // Clear the form for the (unlikely) next open
+      document.getElementById('notifyEmail').value = '';
+      document.getElementById('notifyNewsletter').checked = false;
     } else {
-      const err = await res.json().catch(() => ({}));
-      // If member already exists, try to update tags via PATCH
-      if (err.title === 'Member Exists') {
-        console.log('[Mailchimp] Member exists, updating tags...');
-        await updateMailchimpTags(email, tags);
-      } else {
-        console.warn('[Mailchimp] API error (non-blocking):', err.title || res.status, err.detail || '');
-      }
+      btn.disabled = false;
+      btn.textContent = t('nfSubmit');
+      const err = document.createElement('div');
+      err.id = 'notifyError';
+      err.className = 'notify-error';
+      err.textContent = t('nfError');
+      btn.insertAdjacentElement('beforebegin', err);
     }
+  });
+}
+
+// One POST per location. Content-Type is left as text/plain on purpose: the
+// Apps Script relay only accepts "simple" requests (no CORS preflight) and
+// answers with Access-Control-Allow-Origin: *. Resolves true only if every
+// location was accepted.
+async function sendNotifySignups(payloads) {
+  if (!notifyEnabled()) { console.warn('[Notify Me] No endpoint configured'); return false; }
+  try {
+    const results = await Promise.all(payloads.map(async (p) => {
+      const res = await fetch(NOTIFY_CONFIG.endpoint, { method: 'POST', body: JSON.stringify(p), redirect: 'follow' });
+      if (!res.ok) return false;
+      const data = await res.json().catch(() => ({}));
+      return data && data.ok !== false;
+    }));
+    return results.every(Boolean);
   } catch (err) {
-    // Never block UX on Mailchimp failure
-    console.warn('[Mailchimp] Network error (non-blocking):', err.message);
+    console.warn('[Notify Me] Send failed:', err && err.message);
+    return false;
   }
 }
-
-async function updateMailchimpTags(email, tags) {
-  if (!MAILCHIMP_CONFIG.enabled) return;
-  try {
-    const md5Email = await hashEmail(email.toLowerCase());
-    const endpoint = MAILCHIMP_CONFIG.proxyUrl
-      ? MAILCHIMP_CONFIG.proxyUrl + '/tags'
-      : `https://${MAILCHIMP_CONFIG.serverPrefix}.api.mailchimp.com/3.0/lists/${MAILCHIMP_CONFIG.listId}/members/${md5Email}/tags`;
-
-    const headers = { 'Content-Type': 'application/json' };
-    if (!MAILCHIMP_CONFIG.proxyUrl && MAILCHIMP_CONFIG.apiKey) {
-      headers['Authorization'] = 'Basic ' + btoa('anystring:' + MAILCHIMP_CONFIG.apiKey);
-    }
-
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify({
-        tags: tags.map(t => ({ name: t, status: 'active' }))
-      })
-    });
-
-    if (res.ok) {
-      console.log('[Mailchimp] Tags updated for existing member:', email, tags);
-    } else {
-      console.warn('[Mailchimp] Tag update failed (non-blocking):', res.status);
-    }
-  } catch (err) {
-    console.warn('[Mailchimp] Tag update error (non-blocking):', err.message);
-  }
-}
-
-// Simple MD5 hash for Mailchimp subscriber lookup (uses SubtleCrypto when available, fallback to basic hash)
-async function hashEmail(email) {
-  // Mailchimp requires MD5 — use a small inline implementation
-  return md5(email);
-}
-function md5(s){function L(k,d){return(k<<d)|(k>>>(32-d))}function K(G,k){var I,d,F,H,x;F=(G&2147483648);H=(k&2147483648);I=(G&1073741824);d=(k&1073741824);x=(G&1073741823)+(k&1073741823);if(I&d)return(x^2147483648^F^H);if(I|d){if(x&1073741824)return(x^3221225472^F^H);else return(x^1073741824^F^H)}else return(x^F^H)}function r(d,F,k){return(d&F)|((~d)&k)}function q(d,F,k){return(d&k)|(F&(~k))}function p(d,F,k){return(d^F^k)}function n(d,F,k){return(F^(d|(~k)))}function u(G,F,aa,Z,k,H,I){G=K(G,K(K(r(F,aa,Z),k),I));return K(L(G,H),F)}function f(G,F,aa,Z,k,H,I){G=K(G,K(K(q(F,aa,Z),k),I));return K(L(G,H),F)}function D(G,F,aa,Z,k,H,I){G=K(G,K(K(p(F,aa,Z),k),I));return K(L(G,H),F)}function t(G,F,aa,Z,k,H,I){G=K(G,K(K(n(F,aa,Z),k),I));return K(L(G,H),F)}function e(G){var Z;var F=G.length;var x=F+8;var k=(x-(x%64))/64;var I=(k+1)*16;var aa=Array(I-1);var d=0;var H=0;while(H<F){Z=(H-(H%4))/4;d=(H%4)*8;aa[Z]=(aa[Z]|(G.charCodeAt(H)<<d));H++}Z=(H-(H%4))/4;d=(H%4)*8;aa[Z]=aa[Z]|(128<<d);aa[I-2]=F<<3;aa[I-1]=F>>>29;return aa}function B(x){var k="",F="",G,d;for(d=0;d<=3;d++){G=(x>>>(d*8))&255;F="0"+G.toString(16);k=k+F.substr(F.length-2,2)}return k}var C=Array();var P,h,E,v,g,Y,X,W,V;var S=7,Q=12,N=17,M=22;var A=5,z=9,y=14,w=20;var o=4,m=11,l=16,j=23;var U=6,T=10,R=15,O=21;s=function(d){d=d.replace(/\r\n/g,"\n");var k="";for(var x=0;x<d.length;x++){var F=d.charCodeAt(x);if(F<128){k+=String.fromCharCode(F)}else if((F>127)&&(F<2048)){k+=String.fromCharCode((F>>6)|192);k+=String.fromCharCode((F&63)|128)}else{k+=String.fromCharCode((F>>12)|224);k+=String.fromCharCode(((F>>6)&63)|128);k+=String.fromCharCode((F&63)|128)}}return k}(s);C=e(s);Y=1732584193;X=4023233417;W=2562383102;V=271733878;for(P=0;P<C.length;P+=16){h=Y;E=X;v=W;g=V;Y=u(Y,X,W,V,C[P+0],S,3614090360);V=u(V,Y,X,W,C[P+1],Q,3905402710);W=u(W,V,Y,X,C[P+2],N,606105819);X=u(X,W,V,Y,C[P+3],M,3250441966);Y=u(Y,X,W,V,C[P+4],S,4118548399);V=u(V,Y,X,W,C[P+5],Q,1200080426);W=u(W,V,Y,X,C[P+6],N,2821735955);X=u(X,W,V,Y,C[P+7],M,4249261313);Y=u(Y,X,W,V,C[P+8],S,1770035416);V=u(V,Y,X,W,C[P+9],Q,2336552879);W=u(W,V,Y,X,C[P+10],N,4294925233);X=u(X,W,V,Y,C[P+11],M,2304563134);Y=u(Y,X,W,V,C[P+12],S,1804603682);V=u(V,Y,X,W,C[P+13],Q,4254626195);W=u(W,V,Y,X,C[P+14],N,2792965006);X=u(X,W,V,Y,C[P+15],M,1236535329);Y=f(Y,X,W,V,C[P+1],A,4129170786);V=f(V,Y,X,W,C[P+6],z,3225465664);W=f(W,V,Y,X,C[P+11],y,643717713);X=f(X,W,V,Y,C[P+0],w,3921069994);Y=f(Y,X,W,V,C[P+5],A,3593408605);V=f(V,Y,X,W,C[P+10],z,38016083);W=f(W,V,Y,X,C[P+15],y,3634488961);X=f(X,W,V,Y,C[P+4],w,3889429448);Y=f(Y,X,W,V,C[P+9],A,568446438);V=f(V,Y,X,W,C[P+14],z,3275163606);W=f(W,V,Y,X,C[P+3],y,4107603335);X=f(X,W,V,Y,C[P+8],w,1163531501);Y=f(Y,X,W,V,C[P+13],A,2850285829);V=f(V,Y,X,W,C[P+2],z,4243563512);W=f(W,V,Y,X,C[P+7],y,1735328473);X=f(X,W,V,Y,C[P+12],w,2368359562);Y=D(Y,X,W,V,C[P+5],o,4294588738);V=D(V,Y,X,W,C[P+8],m,2272392833);W=D(W,V,Y,X,C[P+11],l,1839030562);X=D(X,W,V,Y,C[P+14],j,4259657740);Y=D(Y,X,W,V,C[P+1],o,2763975236);V=D(V,Y,X,W,C[P+4],m,1272893353);W=D(W,V,Y,X,C[P+7],l,4139469664);X=D(X,W,V,Y,C[P+10],j,3200236656);Y=D(Y,X,W,V,C[P+13],o,681279174);V=D(V,Y,X,W,C[P+0],m,3936430074);W=D(W,V,Y,X,C[P+3],l,3572445317);X=D(X,W,V,Y,C[P+6],j,76029189);Y=D(Y,X,W,V,C[P+9],o,3654602809);V=D(V,Y,X,W,C[P+12],m,3873151461);W=D(W,V,Y,X,C[P+15],l,530742520);X=D(X,W,V,Y,C[P+2],j,3299628645);Y=t(Y,X,W,V,C[P+0],U,4096336452);V=t(V,Y,X,W,C[P+7],T,1126891415);W=t(W,V,Y,X,C[P+14],R,2878612391);X=t(X,W,V,Y,C[P+5],O,4237533241);Y=t(Y,X,W,V,C[P+12],U,1700485571);V=t(V,Y,X,W,C[P+3],T,2399980690);W=t(W,V,Y,X,C[P+10],R,4293915773);X=t(X,W,V,Y,C[P+1],O,2240044497);Y=t(Y,X,W,V,C[P+8],U,1873313359);V=t(V,Y,X,W,C[P+15],T,4264355552);W=t(W,V,Y,X,C[P+6],R,2734768916);X=t(X,W,V,Y,C[P+13],O,1309151649);Y=t(Y,X,W,V,C[P+4],U,4149444226);V=t(V,Y,X,W,C[P+11],T,3174756917);W=t(W,V,Y,X,C[P+2],R,718787259);X=t(X,W,V,Y,C[P+9],O,3951481745);Y=K(Y,h);X=K(X,E);W=K(W,v);V=K(V,g)}return(B(Y)+B(X)+B(W)+B(V)).toLowerCase()}
 
 // ===== Hook into location events =====
 // Wrap setLocationChip to trigger banner
