@@ -96,7 +96,7 @@ const translations = {
     eventsNearby: '{count} nearby events',
     eventCount: '{n} event', eventsCount: '{n} events',
     // Notify (banner / pill / modal)
-    nfPill: 'Get notified',
+    nfPill: 'Coming to my area?',
     nfBannerNone: 'No screenings near {city} right now. Get notified when Comparsa comes your way.',
     nfBannerSome: 'Don’t see a screening that works for you? <strong>Get notified</strong> when Comparsa is screening near {city}.',
     nfBannerBtn: 'Notify me', nfYourArea: 'your area', nfDismiss: 'Dismiss',
@@ -186,7 +186,7 @@ const translations = {
     eventsNearby: '{count} eventos cercanos',
     eventCount: '{n} evento', eventsCount: '{n} eventos',
     // Notify (banner / pill / modal)
-    nfPill: 'Avísame',
+    nfPill: '¿Viene a mi zona?',
     nfBannerNone: 'No hay proyecciones cerca de {city} por ahora. Recibe un aviso cuando Comparsa llegue a tu zona.',
     nfBannerSome: '¿No encuentras una proyección que te funcione? <strong>Recibe un aviso</strong> cuando Comparsa se proyecte cerca de {city}.',
     nfBannerBtn: 'Avísame', nfYourArea: 'tu zona', nfDismiss: 'Cerrar',
@@ -1668,6 +1668,16 @@ function buildQATag(eventId, venue, workshop) {
 // Small globe SVG used inline next to online-screening rows
 const SCREENING_GLOBE_SVG = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-1px;margin-right:3px;"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>';
 
+// Venue text for a screening row, or null when it would just repeat the
+// event heading (theatrical runs, single-venue community screenings).
+function screeningVenueLabel(s, ev) {
+  if (!s.venue) return null;
+  const norm = v => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const v = norm(s.venue);
+  if (v && [ev.name, ev.nameEn, ev.nameEs].some(n => norm(n) === v)) return null;
+  return s.city && s.city !== ev.city ? `${s.venue}, ${localizePlace(s.city)}` : s.venue;
+}
+
 // Build the inner HTML of a screening row (excluding the wrapping <span>).
 // Handles in-person, online-live, and online-on-demand types consistently
 // across the map popup and both card-list render sites.
@@ -1701,7 +1711,8 @@ function formatScreeningRowContent(s, ev) {
   const parts = [`<strong>${dateStr}</strong>`];
   var ft2 = formatTime(s.time);
   if (!isPast && ft2) parts.push(ft2);
-  if (s.venue) parts.push(s.city && s.city !== ev.city ? `${s.venue}, ${localizePlace(s.city)}` : s.venue);
+  const vl = screeningVenueLabel(s, ev);
+  if (vl) parts.push(vl);
   return parts.join(' · ') + buildQATag(ev.id, s.venue, s.workshop);
 }
 
@@ -1733,7 +1744,8 @@ function groupScreeningRows(screenings, ev) {
     const times = g.map(x => formatTime(x.time)).filter(tm => tm && !seen[tm] && (seen[tm] = true));
     const parts = [`<strong>${dateStr}</strong>`];
     if (times.length) parts.push(times.join(', '));
-    if (s.venue) parts.push(s.city && s.city !== ev.city ? `${s.venue}, ${localizePlace(s.city)}` : s.venue);
+    const vl = screeningVenueLabel(s, ev);
+    if (vl) parts.push(vl);
     return parts.join(' · ') + buildQATag(ev.id, s.venue, s.workshop);
   });
 }
@@ -3363,7 +3375,7 @@ function renderList() {
   // In map view: results inside the current map bounds first, then the rest.
   grid.innerHTML = list.concat(elsewhere).map(cardHTML).join('');
 
-  if (notifyEnabled()) grid.innerHTML += `<div class="notify-cta" id="notifyCta"><div class="notify-cta-text"><strong>${t('nfCtaTitle')}</strong><span>${t('nfCtaDesc')}</span></div><button type="button" class="notify-cta-btn" onclick="openNotifyModal()">${t('nfPill')}</button></div>`;
+  if (notifyEnabled()) grid.innerHTML += `<div class="notify-cta" id="notifyCta"><div class="notify-cta-text"><strong>${t('nfCtaTitle')}</strong><span>${t('nfCtaDesc')}</span></div><button type="button" class="notify-cta-btn" onclick="openNotifyModal()">${t('nfBannerBtn')}</button></div>`;
 
   updateResultCount(list.length + elsewhere.length);
   grid.querySelectorAll('.event-card').forEach(card => {
