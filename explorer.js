@@ -1705,6 +1705,39 @@ function formatScreeningRowContent(s, ev) {
   return parts.join(' · ') + buildQATag(ev.id, s.venue, s.workshop);
 }
 
+// Collapse same-day, same-venue in-person showtimes into one row:
+//   "Oct 9 · 3:00 PM, 5:00 PM, 7:00 PM · DCTV Firehouse Cinema"
+// Returns one inner-HTML string per row (same contract as
+// formatScreeningRowContent). Online rows are never grouped. Past rows
+// already omit the time, so a past day collapses to a single line.
+function groupScreeningRows(screenings, ev) {
+  const groups = [];
+  const byKey = {};
+  (screenings || []).forEach(s => {
+    const inPerson = s.type !== 'online-on-demand' && s.type !== 'online-live';
+    const key = inPerson ? [s.dateISO || s.date || '', s.venue || '', s.city || '', s.workshop || ''].join('|') : null;
+    if (key && byKey[key]) { byKey[key].push(s); return; }
+    const g = [s];
+    if (key) byKey[key] = g;
+    groups.push(g);
+  });
+  return groups.map(g => {
+    const s = g[0];
+    if (g.length === 1) return formatScreeningRowContent(s, ev);
+    var isPast = s.dateISO && new Date(s.dateISO + 'T23:59:59') < new Date();
+    if (isPast) return formatScreeningRowContent(s, ev);
+    var dateStr = s.date;
+    var yr = s.dateISO ? s.dateISO.substring(0, 4) : '';
+    if (yr && yr !== String(new Date().getFullYear())) dateStr = dateStr + ', ' + yr;
+    const seen = {};
+    const times = g.map(x => formatTime(x.time)).filter(tm => tm && !seen[tm] && (seen[tm] = true));
+    const parts = [`<strong>${dateStr}</strong>`];
+    if (times.length) parts.push(times.join(', '));
+    if (s.venue) parts.push(s.city && s.city !== ev.city ? `${s.venue}, ${localizePlace(s.city)}` : s.venue);
+    return parts.join(' · ') + buildQATag(ev.id, s.venue, s.workshop);
+  });
+}
+
 function getHeroGradient(id, category) {
   const cat = category || 'default';
   const options = categoryGradientMap[cat] || categoryGradientMap.default;
@@ -3032,7 +3065,7 @@ function addMapMarkers() {
       const othersRow = multiSite && others > 0 ? `<div class="popup-screening-row popup-other-venues"><span>${t('otherVenues', { n: others })}</span></div>` : '';
       // Rows on a venue pin don't repeat the city — the location line already names it.
       const rowEv = site.own && site.city ? Object.assign({}, ev, { city: site.city }) : ev;
-      popupDateInfo = `<div class="popup-screenings">${siteScreenings.map(s => `<div class="popup-screening-row"><span>${formatScreeningRowContent(s, rowEv)}</span></div>`).join('')}${othersRow}</div>`;
+      popupDateInfo = `<div class="popup-screenings">${groupScreeningRows(siteScreenings, rowEv).map(h => `<div class="popup-screening-row"><span>${h}</span></div>`).join('')}${othersRow}</div>`;
     } else {
       popupDateInfo = `<div class="popup-meta">${ev.websiteDates || ev.dateRange}</div>`;
     }
@@ -3088,8 +3121,8 @@ function showMapCardPanel(ev, marker) {
 
   let dateSection = '';
   if (hasScreenings) {
-    dateSection = ev.screenings.map(s =>
-      `<div class="card-meta">${calIcon}<span>${formatScreeningRowContent(s, ev)}</span></div>`
+    dateSection = groupScreeningRows(ev.screenings, ev).map(h =>
+      `<div class="card-meta">${calIcon}<span>${h}</span></div>`
     ).join('');
   } else {
     dateSection = `<div class="card-meta">${calIcon}${ev.websiteDates || ev.dateRange}</div>`;
@@ -3307,8 +3340,8 @@ function renderList() {
 
     let dateSection = '';
     if (hasScreenings) {
-      dateSection = ev.screenings.map(s =>
-        `<div class="card-meta">${calIcon}<span>${formatScreeningRowContent(s, ev)}</span></div>`
+      dateSection = groupScreeningRows(ev.screenings, ev).map(h =>
+        `<div class="card-meta">${calIcon}<span>${h}</span></div>`
       ).join('');
     } else {
       dateSection = `<div class="card-meta">${calIcon}${ev.websiteDates || ev.dateRange}${distanceDisplay}</div>`;
