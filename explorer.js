@@ -1656,9 +1656,11 @@ const qaMap = {
   'mojoca|MOJOCA, Guatemala City': 'in-person',
 };
 function getQA(eventId, venue) { return qaMap[eventId + '|' + venue] || null; }
-function buildQATag(eventId, venue, workshop) {
-  const qa = getQA(eventId, venue);
+function buildQATag(eventId, venue, workshop, cmsQA) {
   if (workshop) return `<span class="qa-tag workshop">Workshop</span>`;
+  // Prefer the CMS value (Q&A switch on the Screening record, parsed as
+  // s.qa); fall back to the legacy hardcoded qaMap (eventId|venue).
+  const qa = cmsQA === true ? 'in-person' : getQA(eventId, venue);
   if (!qa) return '';
   const cls = qa === 'virtual' ? ' virtual' : '';
   const label = qa === 'virtual' ? 'Q&A (Virtual)' : 'Q&A';
@@ -1700,7 +1702,7 @@ function formatScreeningRowContent(s, ev) {
     if (ft) parts.push(ft);
     parts.push(`${SCREENING_GLOBE_SVG}${t('liveStream')}`);
     if (s.geoLabel) parts.push(s.geoLabel);
-    const qa = buildQATag(ev.id, '', s.workshop);
+    const qa = buildQATag(ev.id, '', s.workshop, s.qa);
     return parts.join(' · ') + qa;
   }
   // In-Person (default)
@@ -1713,7 +1715,7 @@ function formatScreeningRowContent(s, ev) {
   if (!isPast && ft2) parts.push(ft2);
   const vl = screeningVenueLabel(s, ev);
   if (vl) parts.push(vl);
-  return parts.join(' · ') + buildQATag(ev.id, s.venue, s.workshop);
+  return parts.join(' · ') + buildQATag(ev.id, s.venue, s.workshop, s.qa);
 }
 
 // Collapse same-day, same-venue in-person showtimes into one row:
@@ -1740,13 +1742,26 @@ function groupScreeningRows(screenings, ev) {
     var dateStr = s.date;
     var yr = s.dateISO ? s.dateISO.substring(0, 4) : '';
     if (yr && yr !== String(new Date().getFullYear())) dateStr = dateStr + ', ' + yr;
+    // One entry per distinct showtime; a showtime whose Screening record
+    // has the Q&A switch on gets the tag right after its time.
     const seen = {};
-    const times = g.map(x => formatTime(x.time)).filter(tm => tm && !seen[tm] && (seen[tm] = true));
+    let anyOwnQA = false;
+    const times = [];
+    g.forEach(x => {
+      const tm = formatTime(x.time);
+      if (!tm || seen[tm]) return;
+      seen[tm] = true;
+      const own = x.qa === true ? buildQATag(ev.id, x.venue, x.workshop, true) : '';
+      if (own) anyOwnQA = true;
+      times.push(tm + own);
+    });
     const parts = [`<strong>${dateStr}</strong>`];
     if (times.length) parts.push(times.join(', '));
     const vl = screeningVenueLabel(s, ev);
     if (vl) parts.push(vl);
-    return parts.join(' · ') + buildQATag(ev.id, s.venue, s.workshop);
+    // Row-level tag only from the legacy venue-wide qaMap, and only when no
+    // showtime in the group carries its own.
+    return parts.join(' · ') + (anyOwnQA ? '' : buildQATag(ev.id, s.venue, s.workshop));
   });
 }
 
