@@ -669,7 +669,16 @@ function formatPremiereLabel(raw) {
 }
 
 function loadEventsFromCMS() {
-  const items = document.querySelectorAll('.cms-event-item');
+  // The page may carry several hidden lists (Show 100 / Skip 100 …); an event
+  // that appears in two of them is kept once.
+  const seenIds = {};
+  const items = Array.from(document.querySelectorAll('.cms-event-item')).filter(el => {
+    const id = el.dataset.id || el.getAttribute('data-slug') || '';
+    if (!id) return true;
+    if (seenIds[id]) return false;
+    seenIds[id] = 1;
+    return true;
+  });
   if (!items.length) {
     console.warn('Explorer: No CMS event items found. Add a Collection List with class "cms-event-data" to the page.');
     return [];
@@ -907,13 +916,18 @@ function enrichEvents(fn) { eventEnrichers.push(fn); events.forEach(fn); }
     .then(r => r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)))
     .then(html => {
       const doc = new DOMParser().parseFromString(html, 'text/html');
-      const list = doc.querySelector('.cms-event-data');
-      if (!list || !list.querySelector('.cms-event-item')) return;
-      // Same cleanup fixWebflowLayout() does for the page's own list.
-      list.querySelectorAll('.filter-bar, .main, .explorer-lang-switcher, #map, #screeningGrid, #mainContent').forEach(el => el.remove());
-      const imported = document.adoptNode(list);
-      const existing = document.querySelector('.cms-event-data');
-      if (existing) existing.replaceWith(imported); else document.body.appendChild(imported);
+      // Several hidden lists (Webflow caps each at 100 items): import them all.
+      const lists = Array.from(doc.querySelectorAll('.cms-event-data')).filter(l => l.querySelector('.cms-event-item'));
+      if (!lists.length) return;
+      const existing = Array.from(document.querySelectorAll('.cms-event-data'));
+      const anchor = existing[0] || null;
+      lists.forEach(list => {
+        // Same cleanup fixWebflowLayout() does for the page's own lists.
+        list.querySelectorAll('.filter-bar, .main, .explorer-lang-switcher, #map, #screeningGrid, #mainContent').forEach(el => el.remove());
+        const imported = document.adoptNode(list);
+        if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(imported, anchor); else document.body.appendChild(imported);
+      });
+      existing.forEach(el => el.remove());
       const loaded = loadEventsFromCMS();
       if (!loaded.length) return;
       eventEnrichers.forEach(fn => loaded.forEach(fn));
@@ -1391,12 +1405,11 @@ let lightboxEvId = null, lightboxSlideIdx = 0;
   //    The CMS data spans (.cms-event-item, .cms-screening) are still needed for
   //    loadEventsFromCMS(), but the layout elements (filter-bar, main, etc.) inside
   //    the list are duplicates that shadow the real visible ones.
-  const cmsList = document.querySelector('.cms-event-data.w-dyn-list');
-  if (cmsList) {
+  document.querySelectorAll('.cms-event-data.w-dyn-list').forEach(cmsList => {
     cmsList.querySelectorAll('.filter-bar, .main, .explorer-lang-switcher').forEach(el => el.remove());
     // Also remove any duplicate #map, #screeningGrid, #mainContent inside the list
     cmsList.querySelectorAll('#map, #screeningGrid, #mainContent').forEach(el => el.remove());
-  }
+  });
 
   // 2. Disable ScrollSmoother's fixed overlay so explorer content is visible.
   //    ScrollSmoother wraps content in a position:fixed div that blocks everything
