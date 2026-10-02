@@ -52,7 +52,7 @@ const translations = {
     searchPlaceholder: 'Search city, region, or event',
     featured: 'Featured', dateAsc: 'Date ↑', dateDesc: 'Date ↓',
     nearMe: 'Near me', distance: 'Distance', cityNamePlaceholder: 'City name',
-    allTypes: 'All Types', allDates: 'All Dates', festival: 'Festival', community: 'Community', educational: 'Educational', special: 'Special', theatrical: 'Theatrical', theatricalRun: 'Theatrical Run',
+    allTypes: 'All Types', allDates: 'All Dates', festival: 'Festival', community: 'Community', educational: 'Educational', special: 'Special', theatrical: 'Theatrical', awards: 'Awards', awardsMore1: '+1 more award', awardsMoreN: '+{n} more awards', theatricalRun: 'Theatrical Run',
     // View tooltips
     listView: 'List view', hybridView: 'Hybrid view', mapView: 'Map view', resetMap: 'Reset Map',
     // Cards
@@ -143,7 +143,7 @@ const translations = {
     searchPlaceholder: 'Buscar ciudad, región o evento',
     featured: 'Destacadas', dateAsc: 'Fecha ↑', dateDesc: 'Fecha ↓',
     nearMe: 'Cerca de mí', distance: 'Distancia', cityNamePlaceholder: 'Nombre de ciudad',
-    allTypes: 'Todos los tipos', allDates: 'Todas las fechas', festival: 'Festival', community: 'Comunitaria', educational: 'Educativa', special: 'Especial', theatrical: 'En cines', theatricalRun: 'Estreno en cines',
+    allTypes: 'Todos los tipos', allDates: 'Todas las fechas', festival: 'Festival', community: 'Comunitaria', educational: 'Educativa', special: 'Especial', theatrical: 'En cines', awards: 'Premios', awardsMore1: '+1 premio más', awardsMoreN: '+{n} premios más', theatricalRun: 'Estreno en cines',
     // View tooltips
     listView: 'Vista de lista', hybridView: 'Vista híbrida', mapView: 'Vista de mapa', resetMap: 'Restablecer mapa',
     // Cards
@@ -322,7 +322,7 @@ function rebuildUI() {
 
   // Type filters
   const typeRow = document.getElementById('typeFilterRow');
-  if (typeRow) typeRow.innerHTML = `<div class="type-toggle"><button class="type-toggle-btn${typeFilter==='all'?' active':''}" data-type="all">${t('allTypes')}</button><button class="type-toggle-btn${typeFilter==='festival'?' active':''}" data-type="festival">${t('festival')}</button><button class="type-toggle-btn${typeFilter==='theatrical'?' active':''}" data-type="theatrical">${t('theatrical')}</button><button class="type-toggle-btn${typeFilter==='community'?' active':''}" data-type="community">${t('community')}</button><button class="type-toggle-btn${typeFilter==='educational'?' active':''}" data-type="educational">${t('educational')}</button><button class="type-toggle-btn${typeFilter==='special'?' active':''}" data-type="special">${t('special')}</button></div>`;
+  if (typeRow) typeRow.innerHTML = `<div class="type-toggle"><button class="type-toggle-btn${typeFilter==='all'?' active':''}" data-type="all">${t('allTypes')}</button><button class="type-toggle-btn${typeFilter==='awards'?' active':''}" data-type="awards">${t('awards')}</button><button class="type-toggle-btn${typeFilter==='festival'?' active':''}" data-type="festival">${t('festival')}</button><button class="type-toggle-btn${typeFilter==='theatrical'?' active':''}" data-type="theatrical">${t('theatrical')}</button><button class="type-toggle-btn${typeFilter==='community'?' active':''}" data-type="community">${t('community')}</button><button class="type-toggle-btn${typeFilter==='educational'?' active':''}" data-type="educational">${t('educational')}</button><button class="type-toggle-btn${typeFilter==='special'?' active':''}" data-type="special">${t('special')}</button></div>`;
 
   // View toggles
   document.querySelectorAll('.view-toggle').forEach(b => {
@@ -1458,9 +1458,9 @@ function checkURLParams() {
     document.querySelectorAll('#timeFilters .type-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
   }
 
-  // Type filter: all | festival | theatrical | community | educational | special
+  // Type filter: all | awards | festival | theatrical | community | educational | special
   const ty = p.get('type');
-  if (ty && ['all','festival','theatrical','community','educational','special'].includes(ty)) {
+  if (ty && ['all','awards','festival','theatrical','community','educational','special'].includes(ty)) {
     typeFilter = ty;
     document.querySelectorAll('#typeFilterRow .type-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.type === ty));
   }
@@ -3072,6 +3072,199 @@ function buildPopupHero(ev) {
   return buildPopupCarousel(ev);
 }
 
+// ===== AWARDS FILTER + MAP SPOTLIGHT =====
+// The "Awards" type chip keeps only events where the film won something and
+// cycles a spotlight through those pins: a sparkle burst on the pin plus a
+// call-out card, one award at a time, most prestigious first. Events missing
+// from this list follow, ranked by Prestige.
+const AWARD_SPOTLIGHT_ORDER = [
+  'sheffield-docfest',
+  'calgary-international-film-festival',
+  'denver-film-festival',
+  'nashville-film-festival',
+  'icaro-festival-internacional-de-cine',
+  'festival-internacional-de-cine-de-lima-pucp',
+  'chicago-latino-film-festival',
+  'heartland-international-film-festival',
+  'byron-bay-film-festival',
+  'cine-las-americas',
+  'festival-de-cine-global-de-santo-domingo',
+  'costa-rica-festival-internacional-de-cine-crfic',
+  'woods-hole-film-festival',
+  'festcine-itauna',
+  'cinefest-latino-boston',
+  'mujerdoc',
+  'alexandria-film-festival',
+  'coast-film-festival',
+  'anchorage-international-film-festival',
+  'unaff',
+  'womens-voices-now-film-festival',
+  'panorama-portland',
+  'port-townsend-film-festival',
+  'aswan-international-women-film-festival'
+];
+const AWARD_SPOT_MS = 3600;          // time each call-out stays up
+const AWARD_STAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+const AWARD_SPARKLE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z"/></svg>';
+// Wins only: nominations, runner-ups and longlists are left out.
+function winningAwards(ev) {
+  if (!ev) return [];
+  return awardList(ev.id, ev.award).filter(function(a) { return !a.mention; });
+}
+function hasWinningAward(ev) { return winningAwards(ev).length > 0; }
+// Headline award for an event's call-out: a top "Best Feature/Documentary/Film"
+// or Grand Jury prize first, then jury, audience, impact, then commendations.
+function headlineAwardRank(a) {
+  const l = a.label || '';
+  if (/^(best (feature|documentary|film|doc)\b|grand)/i.test(l)) return 0;
+  if (/mention|commendation/i.test(l)) return 4;
+  return { jury: 1, audience: 2, impact: 3 }[a.cls] || 3;
+}
+function awardSpotRank(ev) {
+  const i = AWARD_SPOTLIGHT_ORDER.indexOf(ev.id);
+  return i !== -1 ? i : 1000 + (5 - (ev.prestige || 2)) * 10;
+}
+
+const awardSpot = { timer: null, layer: null, lastId: null, moving: false, reduced: false };
+try { awardSpot.reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+function ensureAwardsChip() {
+  const row = document.querySelector('#typeFilterRow .type-toggle');
+  if (!row || row.querySelector('[data-type="awards"]')) return;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'type-toggle-btn' + (typeFilter === 'awards' ? ' active' : '');
+  b.dataset.type = 'awards';
+  b.textContent = t('awards');
+  const allBtn = row.querySelector('[data-type="all"]');
+  if (allBtn && allBtn.nextSibling) row.insertBefore(b, allBtn.nextSibling); else row.appendChild(b);
+}
+function typePillColor() { return typeFilter === 'awards' ? 'pill-gold' : 'pill-coral'; }
+
+function awardSpotQueue() {
+  if (!map) return [];
+  const b = map.getBounds().pad(-0.04);
+  const seen = {};
+  const q = [];
+  leafletMarkers.forEach(function(m) {
+    if (seen[m.id]) return;            // first marker per event is its primary site
+    seen[m.id] = 1;
+    if (!b.contains(m.marker.getLatLng())) return;
+    const wins = winningAwards(m.ev);
+    if (!wins.length) return;
+    q.push({ ev: m.ev, m: m, wins: wins });
+  });
+  q.sort(function(a, c) { return awardSpotRank(a.ev) - awardSpotRank(c.ev); });
+  return q;
+}
+
+function clearAwardCallout(fade) {
+  const layer = awardSpot.layer;
+  awardSpot.layer = null;
+  document.querySelectorAll('.marker-dot.aw-lit').forEach(function(d) { d.classList.remove('aw-lit'); });
+  if (!layer) return;
+  const el = layer.getElement && layer.getElement();
+  if (fade && el) {
+    const spot = el.querySelector('.aw-spot');
+    if (spot) spot.classList.add('leaving');
+    setTimeout(function() { layer.remove(); }, 380);
+  } else {
+    layer.remove();
+  }
+}
+
+function showAwardCallout(item) {
+  clearAwardCallout(true);
+  const ev = item.ev;
+  const wins = item.wins.slice().map(function(a, i) { return { a: a, i: i }; })
+    .sort(function(x, y) { return headlineAwardRank(x.a) - headlineAwardRank(y.a) || x.i - y.i; })
+    .map(function(x) { return x.a; });
+  const top = wins[0];
+  const more = wins.length - 1;
+  const moreLine = more > 0 ? `<div class="aw-callout-more">${more === 1 ? t('awardsMore1') : t('awardsMoreN', { n: more })}</div>` : '';
+  const place = ev.country ? localizePlace(ev.country) : '';
+  const latlng = item.m.marker.getLatLng();
+  // Keep the card inside the map: flip below near the top edge, nudge sideways near the sides.
+  const pt = map.latLngToContainerPoint(latlng);
+  const size = map.getSize();
+  const half = 110;
+  const dx = Math.max(half + 8 - pt.x, Math.min(0, size.x - pt.x - half - 8));
+  const below = pt.y < 120;
+  const html = `<div class="aw-spot${awardSpot.reduced ? ' still' : ''}">
+    <div class="aw-burst"><span class="aw-ring"></span><span class="aw-sparkle">${AWARD_SPARKLE_SVG}</span><span class="aw-sparkle mini">${AWARD_SPARKLE_SVG}</span></div>
+    <div class="aw-callout ${top.cls}${below ? ' below' : ''}" style="--dx:${Math.round(dx)}px">
+      <div class="aw-callout-award"><span class="aw-callout-star">${AWARD_STAR_SVG}</span><span>${top.label}</span></div>
+      <div class="aw-callout-fest">${ev.name}${place ? ' · ' + place : ''}</div>${moreLine}
+    </div></div>`;
+  const layer = L.marker(latlng, {
+    icon: L.divIcon({ className: 'aw-spot-icon', html: html, iconSize: [0, 0], iconAnchor: [0, 0] }),
+    interactive: false, keyboard: false, zIndexOffset: 5000
+  }).addTo(map);
+  awardSpot.layer = layer;
+  const dotEl = item.m.marker.getElement() && item.m.marker.getElement().querySelector('.marker-dot');
+  if (dotEl) dotEl.classList.add('aw-lit');
+}
+
+function awardSpotStep() {
+  awardSpot.timer = null;
+  if (typeFilter !== 'awards' || !map) { clearAwardCallout(false); return; }
+  const panel = document.getElementById('mapCardPanel');
+  const busy = !isMapVisible() || awardSpot.moving || window._mapPopupOpen ||
+    (panel && panel.classList.contains('visible')) || document.hidden;
+  if (busy) {
+    if (window._mapPopupOpen || (panel && panel.classList.contains('visible'))) clearAwardCallout(false);
+    awardSpot.timer = setTimeout(awardSpotStep, 1200);
+    return;
+  }
+  const queue = awardSpotQueue();
+  if (!queue.length) { clearAwardCallout(true); awardSpot.timer = setTimeout(awardSpotStep, 1500); return; }
+  let i = queue.findIndex(function(q) { return q.ev.id === awardSpot.lastId; });
+  i = (i + 1) % queue.length;
+  showAwardCallout(queue[i]);
+  awardSpot.lastId = queue[i].ev.id;
+  awardSpot.timer = setTimeout(awardSpotStep, AWARD_SPOT_MS);
+}
+
+// Called after every marker rebuild (addMapMarkers).
+function syncAwardSpotlight() {
+  if (!map) return;
+  const container = map.getContainer();
+  const on = typeFilter === 'awards';
+  container.classList.toggle('awards-mode', on);
+  if (!on) {
+    if (awardSpot.timer) { clearTimeout(awardSpot.timer); awardSpot.timer = null; }
+    clearAwardCallout(false);
+    awardSpot.lastId = null;
+    return;
+  }
+  // Twinkling glint on every award pin, each on its own beat.
+  leafletMarkers.forEach(function(m, k) {
+    const el = m.marker.getElement();
+    if (!el || el.querySelector('.aw-glint')) return;
+    const g = document.createElement('span');
+    g.className = 'aw-glint';
+    g.innerHTML = AWARD_SPARKLE_SVG;
+    g.style.setProperty('--tw-delay', ((k * 0.73) % 3).toFixed(2) + 's');
+    g.style.setProperty('--tw-dur', (2.4 + (k % 4) * 0.35).toFixed(2) + 's');
+    el.appendChild(g);
+  });
+  if (!awardSpot.bound) {
+    awardSpot.bound = true;
+    map.on('movestart zoomstart', function() { awardSpot.moving = true; if (typeFilter === 'awards') clearAwardCallout(false); });
+    map.on('moveend zoomend', function() {
+      awardSpot.moving = false;
+      if (typeFilter === 'awards') {
+        if (awardSpot.timer) clearTimeout(awardSpot.timer);
+        awardSpot.timer = setTimeout(awardSpotStep, 700);
+      }
+    });
+  }
+  // Markers were rebuilt: the old call-out's pin may be gone, restart shortly.
+  clearAwardCallout(false);
+  if (awardSpot.timer) clearTimeout(awardSpot.timer);
+  awardSpot.timer = setTimeout(awardSpotStep, 900);
+}
+
 function addMapMarkers() {
   leafletMarkers.forEach(m => m.marker.remove()); leafletMarkers = [];
   events.forEach(ev => {
@@ -3136,6 +3329,7 @@ function addMapMarkers() {
     });
   });
   positionLabels();
+  syncAwardSpotlight();
 }
 
 function showMapCardPanel(ev, marker) {
@@ -3429,7 +3623,8 @@ function matchesFilters(ev) {
   if(regionFilter==='guatemala' && ev.country!=='Guatemala') return false;
   if(timeFilter==='upcoming'&&!ev.upcoming) return false;
   if(timeFilter==='past'&&ev.upcoming) return false;
-  if(typeFilter!=='all' && ev.type!==typeFilter) return false;
+  if(typeFilter==='awards') { if(!hasWinningAward(ev)) return false; }
+  else if(typeFilter!=='all' && ev.type!==typeFilter) return false;
   if(searchQuery){
     const q=searchQuery.toLowerCase();
     const textMatch = `${ev.name} ${ev.nameEn||''} ${ev.nameEs||''} ${ev.city} ${localizePlace(ev.city)} ${ev.country} ${localizePlace(ev.country)} ${ev.screenings.map(s => `${s.venue||''} ${s.city||''} ${localizePlace(s.city)} ${s.geoLabel||''}`).join(' ')}`.toLowerCase().includes(q);
@@ -3542,7 +3737,7 @@ function positionPillSlider(container, colorClass) {
   if (!active) { slider.style.opacity = '0'; return; }
   slider.style.opacity = '1';
   // Remove old color classes, add new one
-  slider.classList.remove('pill-coral', 'pill-teal', 'pill-amber');
+  slider.classList.remove('pill-coral', 'pill-teal', 'pill-amber', 'pill-gold');
   if (colorClass) slider.classList.add(colorClass);
   // Position relative to container padding
   const cRect = container.getBoundingClientRect();
@@ -3562,12 +3757,13 @@ function initAllPillSliders() {
   const timeToggle = document.querySelector('#timeFilters');
   positionPillSlider(timeToggle, getTimePillColor(timeFilter));
   const typeToggle = document.querySelector('#typeFilterRow .type-toggle');
-  positionPillSlider(typeToggle, 'pill-coral');
+  positionPillSlider(typeToggle, typePillColor());
   const regionToggle = document.querySelector('#regionToggle');
   positionPillSlider(regionToggle, null); // uses region-toggle's own .pill-slider style
 }
 
 function bindFilterEvents() {
+  ensureAwardsChip();
   // Region toggle
   document.querySelectorAll('#regionToggle .region-toggle-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.region === regionFilter);
@@ -3603,7 +3799,7 @@ function bindFilterEvents() {
       document.querySelectorAll('#typeFilterRow .type-toggle-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       typeFilter=btn.dataset.type;
-      positionPillSlider(document.querySelector('#typeFilterRow .type-toggle'), 'pill-coral');
+      positionPillSlider(document.querySelector('#typeFilterRow .type-toggle'), typePillColor());
       applyFilters();
     });
   });
