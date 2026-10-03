@@ -3138,7 +3138,22 @@ function awardSpotRank(ev) {
   return i !== -1 ? i : 1000 + (5 - (ev.prestige || 2)) * 10;
 }
 
-const awardSpot = { timer: null, layer: null, lastId: null, moving: false, reduced: false };
+const awardSpot = { timer: null, layer: null, lastId: null, lastKey: null, moving: false, reduced: false };
+// Position in the progression as [rank, id]. Switching filters never resets it:
+// the next call-out is the first award AFTER the last one shown (Doug, 2026-10-01).
+function awardSpotKey(ev) { return [awardSpotRank(ev), ev.id]; }
+function awardKeyAfter(a, b) { return a[0] > b[0] || (a[0] === b[0] && a[1] > b[1]); }
+// The spotlight runs on All Types, Awards and Festival (Doug, 2026-10-01).
+function spotlightOn() { return typeFilter === 'all' || typeFilter === 'awards' || typeFilter === 'festival'; }
+// Call-outs live in their own layer on the map container, above the city
+// labels (z 450/451). Leaflet's marker pane sits inside the transformed map
+// pane, so anything in it renders BELOW the labels whatever its z-index.
+function awardSpotLayer() {
+  const c = map.getContainer();
+  let el = c.querySelector('.aw-spot-layer');
+  if (!el) { el = document.createElement('div'); el.className = 'aw-spot-layer'; c.appendChild(el); }
+  return el;
+}
 try { awardSpot.reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
 
 function ensureAwardsChip() {
@@ -3167,7 +3182,7 @@ function awardSpotQueue() {
     if (!wins.length) return;
     q.push({ ev: m.ev, m: m, wins: wins });
   });
-  q.sort(function(a, c) { return awardSpotRank(a.ev) - awardSpotRank(c.ev); });
+  q.sort(function(a, c) { return awardSpotRank(a.ev) - awardSpotRank(c.ev) || (a.ev.id < c.ev.id ? -1 : 1); });
   return q;
 }
 
@@ -3176,9 +3191,8 @@ function clearAwardCallout(fade) {
   awardSpot.layer = null;
   document.querySelectorAll('.marker-dot.aw-lit').forEach(function(d) { d.classList.remove('aw-lit'); });
   if (!layer) return;
-  const el = layer.getElement && layer.getElement();
-  if (fade && el) {
-    const spot = el.querySelector('.aw-spot');
+  if (fade) {
+    const spot = layer.querySelector('.aw-spot');
     if (spot) spot.classList.add('leaving');
     setTimeout(function() { layer.remove(); }, 380);
   } else {
@@ -3209,10 +3223,12 @@ function showAwardCallout(item) {
       <div class="aw-callout-award"><span class="aw-callout-star">${AWARD_STAR_SVG}</span><span>${top.label}</span></div>
       <div class="aw-callout-fest">${ev.name}${place ? ' · ' + place : ''}</div>${moreLine}
     </div></div>`;
-  const layer = L.marker(latlng, {
-    icon: L.divIcon({ className: 'aw-spot-icon', html: html, iconSize: [0, 0], iconAnchor: [0, 0] }),
-    interactive: false, keyboard: false, zIndexOffset: 5000
-  }).addTo(map);
+  const layer = document.createElement('div');
+  layer.className = 'aw-spot-pos';
+  layer.style.left = Math.round(pt.x) + 'px';
+  layer.style.top = Math.round(pt.y) + 'px';
+  layer.innerHTML = html;
+  awardSpotLayer().appendChild(layer);   // cleared on every move/zoom, so no repositioning needed
   awardSpot.layer = layer;
   const dotEl = item.m.marker.getElement() && item.m.marker.getElement().querySelector('.marker-dot');
   if (dotEl) dotEl.classList.add('aw-lit');
@@ -3220,7 +3236,7 @@ function showAwardCallout(item) {
 
 function awardSpotStep() {
   awardSpot.timer = null;
-  if (typeFilter !== 'awards' || !map) { clearAwardCallout(false); return; }
+  if (!spotlightOn() || !map) { clearAwardCallout(false); return; }
   const panel = document.getElementById('mapCardPanel');
   const busy = !isMapVisible() || awardSpot.moving || window._mapPopupOpen ||
     (panel && panel.classList.contains('visible')) || document.hidden;
@@ -3231,10 +3247,11 @@ function awardSpotStep() {
   }
   const queue = awardSpotQueue();
   if (!queue.length) { clearAwardCallout(true); awardSpot.timer = setTimeout(awardSpotStep, 1500); return; }
-  let i = queue.findIndex(function(q) { return q.ev.id === awardSpot.lastId; });
-  i = (i + 1) % queue.length;
+  let i = awardSpot.lastKey ? queue.findIndex(function(q) { return awardKeyAfter(awardSpotKey(q.ev), awardSpot.lastKey); }) : 0;
+  if (i === -1) i = 0;   // past the end: wrap to the top
   showAwardCallout(queue[i]);
   awardSpot.lastId = queue[i].ev.id;
+  awardSpot.lastKey = awardSpotKey(queue[i].ev);
   awardSpot.timer = setTimeout(awardSpotStep, AWARD_SPOT_MS);
 }
 
@@ -3242,18 +3259,17 @@ function awardSpotStep() {
 function syncAwardSpotlight() {
   if (!map) return;
   const container = map.getContainer();
-  const on = typeFilter === 'awards';
+  const on = spotlightOn();
   container.classList.toggle('awards-mode', on);
   if (!on) {
     if (awardSpot.timer) { clearTimeout(awardSpot.timer); awardSpot.timer = null; }
     clearAwardCallout(false);
-    awardSpot.lastId = null;
-    return;
+    return;            // keep lastKey: turning it back on continues where it left off
   }
   // Twinkling glint on every award pin, each on its own beat.
   leafletMarkers.forEach(function(m, k) {
     const el = m.marker.getElement();
-    if (!el || el.querySelector('.aw-glint')) return;
+    if (!el || el.querySelector('.aw-glint') || !hasWinningAward(m.ev)) return;
     const g = document.createElement('span');
     g.className = 'aw-glint';
     g.innerHTML = AWARD_SPARKLE_SVG;
@@ -3263,19 +3279,28 @@ function syncAwardSpotlight() {
   });
   if (!awardSpot.bound) {
     awardSpot.bound = true;
-    map.on('movestart zoomstart', function() { awardSpot.moving = true; if (typeFilter === 'awards') clearAwardCallout(false); });
+    map.on('movestart zoomstart', function() { awardSpot.moving = true; if (spotlightOn()) clearAwardCallout(false); });
     map.on('moveend zoomend', function() {
       awardSpot.moving = false;
-      if (typeFilter === 'awards') {
+      if (spotlightOn()) {
         if (awardSpot.timer) clearTimeout(awardSpot.timer);
         awardSpot.timer = setTimeout(awardSpotStep, 700);
       }
     });
   }
-  // Markers were rebuilt: the old call-out's pin may be gone, restart shortly.
-  clearAwardCallout(false);
-  if (awardSpot.timer) clearTimeout(awardSpot.timer);
-  awardSpot.timer = setTimeout(awardSpotStep, 900);
+  // Markers were rebuilt (filter/search change). If the award on screen is
+  // still on the map, leave it up and let its timer run; otherwise move on.
+  const shown = awardSpot.layer && awardSpot.lastId &&
+    leafletMarkers.find(function(m) { return m.id === awardSpot.lastId && hasWinningAward(m.ev); });
+  if (shown) {
+    const dot = shown.marker.getElement() && shown.marker.getElement().querySelector('.marker-dot');
+    if (dot) dot.classList.add('aw-lit');
+    if (!awardSpot.timer) awardSpot.timer = setTimeout(awardSpotStep, AWARD_SPOT_MS);
+  } else {
+    clearAwardCallout(false);
+    if (awardSpot.timer) clearTimeout(awardSpot.timer);
+    awardSpot.timer = setTimeout(awardSpotStep, 900);
+  }
 }
 
 function addMapMarkers() {
