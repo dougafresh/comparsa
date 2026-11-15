@@ -56,7 +56,7 @@ const translations = {
     // View tooltips
     listView: 'List view', hybridView: 'Hybrid view', mapView: 'Map view', resetMap: 'Reset Map',
     // Cards
-    pastBadge: 'Past', getTickets: 'Get Tickets', visitWebsite: 'Visit Website',
+    pastBadge: 'Past', getTickets: 'Get Tickets', rsvp: 'RSVP', specialScreening: 'Special Screening', visitWebsite: 'Visit Website',
     tickets: 'Tickets', website: 'Website',
     pressLink: 'Press', watchOnline: 'Watch Online',
     collapse: 'Collapse', clickToCollapse: 'click to collapse', clickToExpand: 'click to expand',
@@ -147,7 +147,7 @@ const translations = {
     // View tooltips
     listView: 'Vista de lista', hybridView: 'Vista híbrida', mapView: 'Vista de mapa', resetMap: 'Restablecer mapa',
     // Cards
-    pastBadge: 'Pasada', getTickets: 'Comprar entradas', visitWebsite: 'Visitar sitio web',
+    pastBadge: 'Pasada', getTickets: 'Comprar entradas', rsvp: 'Confirmar asistencia', specialScreening: 'Proyección especial', visitWebsite: 'Visitar sitio web',
     tickets: 'Entradas', website: 'Sitio web',
     pressLink: 'Prensa', watchOnline: 'Ver en línea',
     collapse: 'Colapsar', clickToCollapse: 'clic para colapsar', clickToExpand: 'clic para expandir',
@@ -1234,6 +1234,11 @@ function buildPopupAwardBadge(award, evId) {
   return '<div class="popup-award-stack">' + list.map(function(a) {
     return `<div class="popup-award-badge ${a.cls}${a.mention ? ' mention' : ''}">${a.mention ? starIcon : icon}${a.label}</div>`;
   }).join('') + '</div>';
+}
+
+function upcomingLinkLabel(ev) {
+  // FYC screenings link to the RSVP form, not a ticket page
+  return /comparsafilm\.com\/rsvp/i.test((ev && ev.link) || '') ? t('rsvp') : t('getTickets');
 }
 
 function buildTypeBadge(type) {
@@ -3310,7 +3315,7 @@ function addMapMarkers() {
     const sites = ev.pinSites || [];
     if (!sites.length) return;
     const multiSite = sites.length > 1;
-    const linkLabel = ev.upcoming ? t('getTickets') : t('visitWebsite');
+    const linkLabel = ev.upcoming ? upcomingLinkLabel(ev) : t('visitWebsite');
     const linkClass = ev.upcoming ? 'upcoming' : 'past';
     const pressLink = !ev.upcoming && ev.press ? `<a href="#" class="popup-link past" style="margin-left:10px;color:var(--mid);font-size:11px;" onclick="openPressPopover('${ev.id}', this); event.preventDefault();">${t('pressLink')} \u2192</a>` : '';
     sites.forEach(site => {
@@ -3372,7 +3377,7 @@ function addMapMarkers() {
 
 function showMapCardPanel(ev, marker) {
   const panel = document.getElementById('mapCardPanel');
-  const linkLabel = ev.upcoming ? t('getTickets') : t('visitWebsite') + ' \u2192';
+  const linkLabel = ev.upcoming ? upcomingLinkLabel(ev) : t('visitWebsite') + ' \u2192';
   const linkClass = ev.upcoming ? 'upcoming-link' : 'past-link';
   const hasScreenings = ev.screenings.length > 0;
   const calIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
@@ -3587,7 +3592,7 @@ function renderList() {
 
   const cardHTML = ev => {
     const multi = ev.screenings.length>1;
-    const linkLabel = ev.upcoming ? t('getTickets') : t('visitWebsite') + ' \u2192';
+    const linkLabel = ev.upcoming ? upcomingLinkLabel(ev) : t('visitWebsite') + ' \u2192';
     const linkClass = ev.upcoming ? 'card-link upcoming-link' : 'card-link past-link';
     const distanceDisplay = sortMode === 'distance' && ev.distance !== undefined ?
       `<span class="distance-badge">${ev.distance < 1 ? t('lessThan1km') : t('kmAway', {n: Math.round(ev.distance)})}</span>` : '';
