@@ -66,7 +66,7 @@ const translations = {
     availableOnlineTomorrow: 'Available online tomorrow',
     availableOnlineInDays: 'Available online in {n} days',
     onlineDate: 'Online {date}',
-    watchLive: 'Watch live', liveStream: 'Live stream',
+    watchLive: 'Watch live', liveStream: 'Live stream', qaModeratedBy: 'Q&A moderated by {name}',
     availableWindow: 'Available {range}', online: 'Online',
     myLocation: 'My location', locating: 'Locating...', locationDenied: 'Location access denied or unavailable.',
     otherVenues: '+{n} more at other venues',
@@ -157,7 +157,7 @@ const translations = {
     availableOnlineTomorrow: 'Disponible en línea mañana',
     availableOnlineInDays: 'Disponible en línea en {n} días',
     onlineDate: 'En línea {date}',
-    watchLive: 'Ver en vivo', liveStream: 'Transmisión en vivo',
+    watchLive: 'Ver en vivo', liveStream: 'Transmisión en vivo', qaModeratedBy: 'Q&A moderado por {name}',
     availableWindow: 'Disponible {range}', online: 'En línea',
     myLocation: 'Mi ubicación', locating: 'Ubicando...', locationDenied: 'No se pudo acceder a tu ubicación.',
     otherVenues: '+{n} más en otras sedes',
@@ -714,6 +714,7 @@ function loadEventsFromCMS() {
         geoLabel: (sd.geoLabel || '').trim() || null,
         workshop: sd.workshop === 'true' || sd.workshop === 'True' ? true : undefined,
         qa: sd.qa === 'true' || sd.qa === 'True' ? true : undefined,
+        moderator: (sd.moderator || '').trim() || null,   // optional Q&A moderator
         encore: sd.encore === 'true' || sd.encore === 'True' ? true : undefined,
         // Optional per-screening pin (satellite venues / sedes alternas).
         // When lat+lng are set this screening gets its OWN map marker;
@@ -1698,6 +1699,15 @@ function screeningVenueLabel(s, ev) {
   return s.city && s.city !== ev.city ? `${s.venue}, ${localizePlace(s.city)}` : s.venue;
 }
 
+// Optional "Q&A moderated by …" line under a showtime row. names: moderator
+// strings (falsy / duplicates ignored); several are joined with " & ".
+function buildModeratorLine(names) {
+  const list = [];
+  (names || []).forEach(n => { n = String(n || '').trim(); if (n && list.indexOf(n) < 0) list.push(n); });
+  if (!list.length) return '';
+  return `<span class="qa-moderator" style="display:block;font-size:0.92em;opacity:0.8;margin-top:2px;">${t('qaModeratedBy', { name: escapeHtml(list.join(' & ')) })}</span>`;
+}
+
 // Build the inner HTML of a screening row (excluding the wrapping <span>).
 // Handles in-person, online-live, and online-on-demand types consistently
 // across the map popup and both card-list render sites.
@@ -1721,7 +1731,7 @@ function formatScreeningRowContent(s, ev) {
     parts.push(`${SCREENING_GLOBE_SVG}${t('liveStream')}`);
     if (s.geoLabel) parts.push(s.geoLabel);
     const qa = buildQATag(ev.id, '', s.workshop, s.qa);
-    return parts.join(' · ') + qa;
+    return parts.join(' · ') + qa + buildModeratorLine([s.moderator]);
   }
   // In-Person (default)
   var isPast = s.dateISO && new Date(s.dateISO + 'T23:59:59') < new Date();
@@ -1733,7 +1743,7 @@ function formatScreeningRowContent(s, ev) {
   if (!isPast && ft2) parts.push(ft2);
   const vl = screeningVenueLabel(s, ev);
   if (vl) parts.push(vl);
-  return parts.join(' · ') + buildQATag(ev.id, s.venue, s.workshop, s.qa);
+  return parts.join(' · ') + buildQATag(ev.id, s.venue, s.workshop, s.qa) + buildModeratorLine([s.moderator]);
 }
 
 // Collapse same-day, same-venue in-person showtimes into one row:
@@ -1779,7 +1789,7 @@ function groupScreeningRows(screenings, ev) {
     if (vl) parts.push(vl);
     // Row-level tag only from the legacy venue-wide qaMap, and only when no
     // showtime in the group carries its own.
-    return parts.join(' · ') + (anyOwnQA ? '' : buildQATag(ev.id, s.venue, s.workshop));
+    return parts.join(' · ') + (anyOwnQA ? '' : buildQATag(ev.id, s.venue, s.workshop)) + buildModeratorLine(g.map(x => x.moderator));
   });
 }
 
